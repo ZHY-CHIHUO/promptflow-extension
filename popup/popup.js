@@ -1,13 +1,24 @@
 document.getElementById("saveBtn").addEventListener("click", async () => {
-    // 获取当前标签页
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    // 向 Content Script 发消息，让它读取输入框
     const response = await chrome.tabs.sendMessage(tab.id, { action: "getPrompt" });
-    console.log("捕获的 Prompt:", response?.text);
+
+    if (response?.text) {
+        document.getElementById("saveBtn").textContent = "已捕获： " + response.text.slice(0, 20) + "...";
+        console.log("完整 Prompt:", response.text);
+    } else {
+        document.getElementById("saveBtn").textContent = "未检测到内容";
+    }
 });
 
-document.getElementById("listBtn").addEventListener("click", () => {
-    // 后续接 Vue 做的版本列表
-    console.log("打开版本列表");
+document.getElementById("listBtn").addEventListener("click", async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    // 测试回填功能：往 DeepSeek 输入框填一段文字
+    await chrome.tabs.sendMessage(tab.id, {
+        action: "fillPrompt",
+        text: "这是从 PromptFlow 回填的测试文字"
+    });
+
+    document.getElementById("listBtn").textContent = "已回填！";
 });
