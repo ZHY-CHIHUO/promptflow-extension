@@ -44,14 +44,11 @@ async function addPrompt(prompt) {
         return { error: "DUPLICATE", message: "已存在相同内容的 Prompt", existingId: duplicate.id };
     }
 
-    // 自动生成标题：取前 10 个字
-    const autoTitle = text.slice(0, 10) + (text.length > 10 ? "..." : "");
-
     const p = {
         ...prompt,
         id: prompt.id || crypto.randomUUID(),
         promptText: text,
-        title: prompt.title || autoTitle,         // ← 新增字段
+        title: prompt.title || "",
         tags: prompt.tags || [],
         notes: prompt.notes || "",
         isFavorite: false,

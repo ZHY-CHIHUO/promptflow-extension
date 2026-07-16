@@ -61,7 +61,7 @@ function renderList() {
     }
 
     listEl.innerHTML = filtered.map(p => {
-        const title = p.title || p.promptText.slice(0, 40) + (p.promptText.length > 40 ? "..." : "");
+        const title = p.title || p.promptText.slice(0, 10) + (p.promptText.length > 10 ? "..." : "");
         const preview = p.promptText.slice(0, 80) + (p.promptText.length > 80 ? "..." : "");
         return `
       <div class="list-item ${selectMode ? 'select-mode' : ''}" data-id="${p.id}">
