@@ -1,16 +1,19 @@
 {
     "manifest_version": 3,
     "name": "PromptFlow",
-    "version": "0.1.0",
-    "description": "浏览器里的 Prompt 工程笔记本",
+    "version": "0.2.0",
+    "description": "浏览器里的 Prompt 工程笔记本 — 适配所有 AI 网站",
     "permissions": [
         "activeTab",
         "scripting",
         "storage"
     ],
     "host_permissions": [
-        "https://chat.deepseek.com/*"
+        "<all_urls>"
     ],
+    "background": {
+        "service_worker": "background/service-worker.js"
+    },
     "action": {
         "default_popup": "popup/popup.html",
         "default_title": "PromptFlow"
@@ -18,7 +21,7 @@
     "content_scripts": [
         {
             "matches": [
-                "https://chat.deepseek.com/*"
+                "<all_urls>"
             ],
             "js": [
                 "content-script/content.js"
