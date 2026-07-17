@@ -1,5 +1,5 @@
 // =============================================
-// PromptFlow 悬浮球 — 全自动适配 + 边缘吸附 + 位置记忆
+// PromptFlow 悬浮球 — 全自动适配 + 边缘吸附 + 位置记忆 + 内嵌面板
 // =============================================
 
 // ========== 智能输入框探测 ==========
@@ -142,74 +142,415 @@ function snapBall() {
     }
 }
 
-// ========== 4. 快捷面板 ==========
-const panel = document.createElement("div");
-panel.id = "promptflow-panel";
-Object.assign(panel.style, {
-    position: "fixed", width: "260px", background: "#fff",
-    borderRadius: "12px", boxShadow: "0 8px 30px rgba(0,0,0,.15)", zIndex: "99998",
-    display: "none", flexDirection: "column", padding: "8px",
-    fontFamily: "sans-serif", fontSize: "14px", color: "#333"
-});
+// ========== 4. 内嵌面板（替代旧快捷菜单）==========
+function buildPanel() {
+    const panel = document.createElement("div");
+    panel.id = "promptflow-panel";
+
+    // 插入样式（只插入一次）
+    if (!document.querySelector("#promptflow-panel-style")) {
+        const style = document.createElement("style");
+        style.id = "promptflow-panel-style";
+        style.textContent = `
+            #promptflow-panel {
+                position: fixed;
+                width: 300px;
+                max-height: 420px;
+                background: #1e1e2e;
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 12px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+                z-index: 99998;
+                display: none;
+                flex-direction: column;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                font-size: 13px;
+                color: #e0e0e0;
+                overflow: hidden;
+                opacity: 0;
+                transform: translateY(6px) scale(0.97);
+                transition: opacity 0.18s, transform 0.18s;
+            }
+            #promptflow-panel.pf-visible {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            #promptflow-panel .pf-panel-header {
+                padding: 12px;
+                border-bottom: 1px solid rgba(255,255,255,0.06);
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            #promptflow-panel .pf-search {
+                flex: 1;
+                background: rgba(255,255,255,0.06);
+                border: 1px solid rgba(255,255,255,0.1);
+                border-radius: 8px;
+                padding: 7px 10px;
+                color: #e0e0e0;
+                font-size: 13px;
+                outline: none;
+                transition: border-color 0.15s;
+            }
+            #promptflow-panel .pf-search::placeholder { color: #666; }
+            #promptflow-panel .pf-search:focus { border-color: #667eea; }
+            #promptflow-panel .pf-actions {
+                display: flex;
+                gap: 4px;
+            }
+            #promptflow-panel .pf-btn-icon {
+                width: 30px; height: 30px;
+                border: none; border-radius: 8px;
+                background: rgba(255,255,255,0.06);
+                color: #e0e0e0;
+                cursor: pointer;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 14px;
+                transition: background 0.12s, color 0.12s;
+            }
+            #promptflow-panel .pf-btn-icon:hover { background: rgba(255,255,255,0.12); color: #fff; }
+            #promptflow-panel .pf-btn-icon.active { background: #667eea; color: #fff; }
+            #promptflow-panel .pf-panel-list {
+                flex: 1;
+                overflow-y: auto;
+                max-height: 280px;
+                padding: 6px 8px;
+            }
+            #promptflow-panel .pf-panel-list::-webkit-scrollbar {
+                width: 4px;
+            }
+            #promptflow-panel .pf-panel-list::-webkit-scrollbar-thumb {
+                background: rgba(255,255,255,0.12);
+                border-radius: 2px;
+            }
+            #promptflow-panel .pf-empty {
+                text-align: center;
+                padding: 28px 16px;
+                color: #666;
+                font-size: 13px;
+            }
+            #promptflow-panel .pf-prompt-item {
+                display: flex;
+                align-items: flex-start;
+                padding: 10px;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: background 0.1s;
+                gap: 8px;
+                margin-bottom: 2px;
+            }
+            #promptflow-panel .pf-prompt-item:hover {
+                background: rgba(255,255,255,0.05);
+            }
+            #promptflow-panel .pf-prompt-body {
+                flex: 1;
+                min-width: 0;
+            }
+            #promptflow-panel .pf-prompt-title {
+                font-weight: 600;
+                font-size: 13px;
+                color: #f0f0f0;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                margin-bottom: 3px;
+            }
+            #promptflow-panel .pf-prompt-meta {
+                font-size: 11px;
+                color: #777;
+                display: flex;
+                gap: 8px;
+            }
+            #promptflow-panel .pf-prompt-preview {
+                font-size: 12px;
+                color: #999;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                margin-top: 2px;
+            }
+            #promptflow-panel .pf-btn-fill {
+                flex-shrink: 0;
+                width: 28px; height: 28px;
+                border: none; border-radius: 6px;
+                background: rgba(102,126,234,0.2);
+                color: #667eea;
+                cursor: pointer;
+                font-size: 12px;
+                display: flex; align-items: center; justify-content: center;
+                transition: background 0.12s;
+                margin-top: 2px;
+            }
+            #promptflow-panel .pf-btn-fill:hover {
+                background: rgba(102,126,234,0.4);
+            }
+            #promptflow-panel .pf-panel-footer {
+                padding: 8px 12px;
+                border-top: 1px solid rgba(255,255,255,0.06);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            #promptflow-panel .pf-count {
+                font-size: 11px;
+                color: #666;
+            }
+            #promptflow-panel .pf-btn-footer {
+                background: transparent;
+                border: none;
+                color: #888;
+                font-size: 12px;
+                cursor: pointer;
+                padding: 4px 8px;
+                border-radius: 6px;
+                transition: background 0.12s, color 0.12s;
+            }
+            #promptflow-panel .pf-btn-footer:hover { background: rgba(255,255,255,0.06); color: #bbb; }
+            #promptflow-panel .pf-btn-footer.primary { color: #667eea; }
+            #promptflow-panel .pf-btn-footer.primary:hover { background: rgba(102,126,234,0.15); }
+        `;
+        document.head.appendChild(style);
+    }
+
+    panel.innerHTML = `
+        <div class="pf-panel-header">
+            <input class="pf-search" placeholder="搜索已保存的 Prompt..." />
+            <div class="pf-actions">
+                <button class="pf-btn-icon" id="pf-btn-save" title="保存当前输入框内容">💾</button>
+                <button class="pf-btn-icon" id="pf-btn-optimize" title="AI 优化当前 Prompt">✨</button>
+            </div>
+        </div>
+        <div class="pf-panel-list" id="pf-list">
+            <div class="pf-empty">加载中...</div>
+        </div>
+        <div class="pf-panel-footer">
+            <span class="pf-count" id="pf-count"></span>
+            <button class="pf-btn-footer primary" id="pf-btn-manage">打开管理面板 ▸</button>
+        </div>
+    `;
+
+    return panel;
+}
+
+// 如果旧面板存在则移除，防止冲突
+const oldPanel = document.querySelector("#promptflow-panel");
+if (oldPanel) oldPanel.remove();
+
+const panel = buildPanel();
 document.body.appendChild(panel);
 
+// 面板引用缓存
+const listEl = panel.querySelector("#pf-list");
+const searchEl = panel.querySelector(".pf-search");
+const countEl = panel.querySelector("#pf-count");
+const btnSave = panel.querySelector("#pf-btn-save");
+const btnOptimize = panel.querySelector("#pf-btn-optimize");
+const btnManage = panel.querySelector("#pf-btn-manage");
+
+// ========== 5. 面板定位 ==========
 function positionPanel() {
     const ballRect = ball.getBoundingClientRect();
     const ballCenter = ballRect.left + ballRect.width / 2;
     const screenCenter = window.innerWidth / 2;
+    const gap = 12;
+
+    let left, top = ballRect.top;
+
     if (ballCenter < screenCenter) {
-        panel.style.left = (ballRect.right + 10) + "px";
-        panel.style.right = "auto";
+        left = ballRect.right + gap;
     } else {
-        panel.style.right = (window.innerWidth - ballRect.left + 10) + "px";
-        panel.style.left = "auto";
+        left = ballRect.left - panel.offsetWidth - gap;
     }
-    panel.style.top = Math.min(ballRect.top, window.innerHeight - 360) + "px";
+
+    // 右侧超界
+    if (left + panel.offsetWidth > window.innerWidth - 8) {
+        left = window.innerWidth - panel.offsetWidth - 8;
+    }
+    // 左侧超界
+    if (left < 8) left = 8;
+    // 底部超界
+    if (top + panel.offsetHeight > window.innerHeight - 8) {
+        top = Math.max(8, window.innerHeight - panel.offsetHeight - 8);
+    }
+    // 顶部超界
+    if (top < 8) top = 8;
+
+    panel.style.left = left + "px";
+    panel.style.top = top + "px";
+    panel.style.right = "auto";
     panel.style.bottom = "auto";
 }
 
-const menuItems = [
-    { label: "平台: " + getPlatformLabel(), disabled: true },
-    { label: "💾 保存当前 Prompt", action: "save" },
-    { label: "📋 查看已保存的 Prompt", action: "list" },
-    { label: "✨ AI 优化", action: "optimize" },
-];
-
-menuItems.forEach(item => {
-    const d = document.createElement("div");
-    d.textContent = item.label;
-    Object.assign(d.style, {
-        padding: "10px 12px", borderRadius: "8px",
-        cursor: item.disabled ? "default" : "pointer", transition: "background .1s",
-        color: item.disabled ? "#9ca3af" : "", fontSize: item.disabled ? "12px" : ""
+// ========== 6. 面板显隐 ==========
+function showPanel() {
+    positionPanel();
+    panel.style.display = "flex";
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => panel.classList.add("pf-visible"));
     });
-    if (!item.disabled) {
-        d.addEventListener("mouseenter", () => d.style.background = "#f3f4f6");
-        d.addEventListener("mouseleave", () => d.style.background = "transparent");
-        d.addEventListener("click", () => { panel.style.display = "none"; handleAction(item.action); });
+    loadPrompts();
+    searchEl.focus();
+}
+
+function hidePanel() {
+    panel.classList.remove("pf-visible");
+    setTimeout(() => { panel.style.display = "none"; }, 180);
+}
+
+function togglePanel() {
+    if (panel.style.display === "flex" && panel.classList.contains("pf-visible")) {
+        hidePanel();
+    } else {
+        showPanel();
     }
-    panel.appendChild(d);
+}
+
+// 点击面板外部关闭
+document.addEventListener("click", (e) => {
+    if (
+        panel.style.display === "flex" &&
+        panel.classList.contains("pf-visible") &&
+        !panel.contains(e.target) &&
+        e.target !== ball
+    ) {
+        hidePanel();
+    }
 });
 
-// ========== 5. 消息通信 ==========
+// 禁止面板内部点击冒泡导致关闭
+panel.addEventListener("click", (e) => e.stopPropagation());
+
+// ========== 7. 数据加载与渲染 ==========
+async function loadPrompts(searchText = "") {
+    listEl.innerHTML = '<div class="pf-empty">加载中...</div>';
+
+    let prompts;
+    try {
+        const res = await chrome.runtime.sendMessage({
+            action: searchText ? "db:searchPrompts" : "db:getAllPrompts",
+            query: searchText || undefined
+        });
+        prompts = res?.prompts || res || [];
+        // 兼容不同返回格式
+        if (!Array.isArray(prompts)) prompts = [];
+    } catch (err) {
+        prompts = [];
+    }
+
+    if (prompts.length === 0) {
+        listEl.innerHTML = '<div class="pf-empty">还没有保存的 Prompt<br>在输入框写好内容后点击 💾 保存</div>';
+        countEl.textContent = "共 0 条";
+    } else {
+        listEl.innerHTML = prompts.map(p => {
+            const title = p.title || p.promptText?.slice(0, 40) || "无标题";
+            const content = p.content || p.promptText || "";
+            const preview = content.slice(0, 60).replace(/\n/g, " ");
+            const source = p.source || p.platform || "";
+            const platform = p.platform || "";
+            const date = p.createdAt ? new Date(p.createdAt).toLocaleDateString("zh-CN") : "";
+            return `
+                <div class="pf-prompt-item" data-id="${p.id}">
+                    <div class="pf-prompt-body">
+                        <div class="pf-prompt-title">${escapeHtml(title)}</div>
+                        <div class="pf-prompt-meta">
+                            ${source ? `<span>📌 ${escapeHtml(source)}</span>` : ""}
+                            ${date ? `<span>${date}</span>` : ""}
+                        </div>
+                        <div class="pf-prompt-preview">${escapeHtml(preview)}</div>
+                    </div>
+                    <button class="pf-btn-fill" title="填入输入框">▶</button>
+                </div>
+            `;
+        }).join("");
+        countEl.textContent = `共 ${prompts.length} 条`;
+    }
+
+    // 绑定点击事件
+    listEl.querySelectorAll(".pf-prompt-item").forEach(item => {
+        item.addEventListener("click", async (e) => {
+            // 如果点击的是填充按钮，不触发整行点击
+            if (e.target.closest(".pf-btn-fill")) return;
+            // 整行点击也执行填充
+            await fillPromptById(item.dataset.id);
+        });
+    });
+
+    listEl.querySelectorAll(".pf-btn-fill").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            await fillPromptById(btn.closest(".pf-prompt-item").dataset.id);
+        });
+    });
+}
+
+async function fillPromptById(promptId) {
+    let content;
+    try {
+        const res = await chrome.runtime.sendMessage({
+            action: "db:getPrompt",
+            id: promptId
+        });
+        content = res?.content || res?.promptText || "";
+    } catch (err) {
+        return toast("❌ 获取失败");
+    }
+
+    if (!content) return toast("⚠️ 内容为空");
+
+    const success = setInputText(content);
+    if (success) {
+        toast("✅ 已填入输入框");
+    } else {
+        toast("⚠️ 未找到输入框");
+    }
+    hidePanel();
+}
+
+function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ========== 8. 搜索过滤 ==========
+let searchTimer;
+searchEl.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+        loadPrompts(searchEl.value.trim());
+    }, 250);
+});
+
+// ========== 9. 按钮事件 ==========
+btnSave.addEventListener("click", (e) => {
+    e.stopPropagation();
+    savePrompt();
+});
+
+btnOptimize.addEventListener("click", (e) => {
+    e.stopPropagation();
+    optimizePrompt();
+});
+
+btnManage.addEventListener("click", (e) => {
+    e.stopPropagation();
+    // 尝试打开 Popup（Manifest V3 限制，只能通过 chrome.action 触发）
+    // 降级方案：提示用户点击扩展图标
+    try {
+        chrome.runtime.sendMessage({ action: "openPopup" });
+    } catch (_) { /* ignore */ }
+    toast("📋 请点击浏览器工具栏的扩展图标打开管理面板");
+});
+
+// ========== 10. 消息通信 ==========
 chrome.runtime.onMessage.addListener((req, sender, res) => {
     if (req.action === "getPrompt") { res({ text: getInputText() }); return true; }
     if (req.action === "fillPrompt") { res({ success: setInputText(req.text) }); return true; }
+    if (req.action === "refreshPanel") { loadPrompts(searchEl.value.trim()); return true; }
 });
 
-// ========== 6. 核心操作 ==========
-function togglePanel() {
-    panel.querySelector("div").textContent = "平台: " + getPlatformLabel();
-    positionPanel();
-    panel.style.display = panel.style.display === "flex" ? "none" : "flex";
-}
-
-function handleAction(act) {
-    if (act === "save") savePrompt();
-    else if (act === "optimize") optimizePrompt();
-    else toast("📋 请在扩展 Popup 中查看");
-}
-
+// ========== 11. 核心操作（保留原有逻辑）==========
 async function savePrompt() {
     const text = getInputText();
     if (!text) return toast("⚠️ 输入框为空");
@@ -217,8 +558,12 @@ async function savePrompt() {
         action: "db:addPrompt",
         payload: { promptText: text, source: getPlatformLabel(), platform: location.hostname }
     });
-    if (r.error === "DUPLICATE") toast("⚠️ 已保存过");
-    else if (r && !r.error) toast("✅ 已保存！");
+    if (r?.error === "DUPLICATE") toast("⚠️ 已保存过");
+    else if (r && !r.error) {
+        toast("✅ 已保存！");
+        // 如果面板开着，刷新列表
+        if (panel.style.display === "flex") loadPrompts(searchEl.value.trim());
+    }
     else toast("❌ " + (r?.error || "失败"));
 }
 
@@ -229,7 +574,7 @@ function optimizePrompt() {
     toast("✨ Meta-prompt 已填入，请手动发送");
 }
 
-// ========== 7. Toast 提示 ==========
+// ========== 12. Toast 提示 ==========
 function toast(msg) {
     const old = document.querySelector("#promptflow-toast");
     if (old) old.remove();
@@ -252,7 +597,7 @@ function toast(msg) {
     }, 2000);
 }
 
-// ========== 8. 位置记忆 ==========
+// ========== 13. 位置记忆 ==========
 function savePosition() {
     const rect = ball.getBoundingClientRect();
     const ballCenter = rect.left + rect.width / 2;
@@ -287,6 +632,19 @@ function restorePosition() {
         });
     });
 }
+
+// ========== 14. 键盘快捷键 ==========
+document.addEventListener("keydown", (e) => {
+    // Ctrl+Shift+P 打开面板
+    if (e.ctrlKey && e.shiftKey && e.key === "P") {
+        e.preventDefault();
+        togglePanel();
+    }
+    // Esc 关闭面板
+    if (e.key === "Escape" && panel.style.display === "flex" && panel.classList.contains("pf-visible")) {
+        hidePanel();
+    }
+});
 
 // 启动时恢复位置
 restorePosition();

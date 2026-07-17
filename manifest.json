@@ -1,31 +1,21 @@
 {
-    "manifest_version": 3,
-    "name": "PromptFlow",
-    "version": "0.2.0",
-    "description": "浏览器里的 Prompt 工程笔记本 — 适配所有 AI 网站",
-    "permissions": [
-        "activeTab",
-        "scripting",
-        "storage"
-    ],
-    "host_permissions": [
-        "<all_urls>"
-    ],
-    "background": {
-        "service_worker": "background/service-worker.js"
-    },
-    "action": {
-        "default_popup": "popup/popup.html",
-        "default_title": "PromptFlow"
-    },
-    "content_scripts": [
-        {
-            "matches": [
-                "<all_urls>"
-            ],
-            "js": [
-                "content-script/content.js"
-            ]
-        }
-    ]
+  "manifest_version": 3,
+  "name": "PromptFlow",
+  "version": "0.2.0",
+  "description": "浏览器里的 Prompt 工程笔记本 — 适配所有 AI 网站",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "PromptFlow"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script/content.js"]
+    }
+  ]
 }
