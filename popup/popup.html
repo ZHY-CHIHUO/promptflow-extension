@@ -8,25 +8,25 @@
       /* ===== 设计系统变量 ===== */
       :root {
         /* 品牌色 */
-        --pf-primary: #7c3aed;
-        --pf-primary-light: #8b5cf6;
-        --pf-primary-dark: #6d28d9;
-        --pf-primary-bg: #f5f3ff;
+        --pf-primary: #6d4aff;
+        --pf-primary-light: #8b6cff;
+        --pf-primary-dark: #5a3dcc;
+        --pf-primary-bg: #f0edff;
         /* 中性色 */
         --pf-bg: #ffffff;
-        --pf-bg-secondary: #fafafb;
-        --pf-bg-tertiary: #f0f0f5;
-        --pf-border: #e8e8ee;
-        --pf-border-light: #f0f0f2;
+        --pf-bg-secondary: #f8f9fc;
+        --pf-bg-tertiary: #f0f2f6;
+        --pf-border: #e8ecf1;
+        --pf-border-light: #f0f2f6;
         /* 文字色 */
-        --pf-text-primary: #1a1a2e;
-        --pf-text-secondary: #6b6b80;
-        --pf-text-tertiary: #9b9bb0;
-        --pf-text-placeholder: #b8b8cc;
+        --pf-text-primary: #1e1e2e;
+        --pf-text-secondary: #5a5a72;
+        --pf-text-tertiary: #8e8ea8;
+        --pf-text-placeholder: #b0b0c4;
         /* 功能色 */
         --pf-success: #059669;
         --pf-success-bg: #ecfdf5;
-        --pf-danger: #e53e3e;
+        --pf-danger: #dc2626;
         --pf-danger-bg: #fef2f2;
         /* 字号 */
         --pf-fs-xs: 11px;
@@ -35,12 +35,11 @@
         --pf-fs-md: 14px;
         --pf-fs-lg: 15px;
         /* 间距 */
-        --pf-space-xs: 4px;
-        --pf-space-sm: 8px;
+        --pf-space-xs: 6px;
+        --pf-space-sm: 10px;
         --pf-space-base: 12px;
-        --pf-space-md: 14px;
-        --pf-space-lg: 16px;
-        --pf-space-xl: 20px;
+        --pf-space-md: 16px;
+        --pf-space-lg: 20px;
         /* 圆角 */
         --pf-radius-sm: 6px;
         --pf-radius-base: 8px;
@@ -48,14 +47,13 @@
         --pf-radius-lg: 12px;
         --pf-radius-xl: 16px;
         /* 阴影 */
-        --pf-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
-        --pf-shadow-base: 0 2px 8px rgba(0, 0, 0, 0.08);
-        --pf-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
-        --pf-shadow-button: 0 2px 8px rgba(124, 58, 237, 0.3);
+        --pf-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+        --pf-shadow-base: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+        --pf-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06);
+        --pf-shadow-button: 0 2px 8px rgba(109, 74, 255, 0.3);
         /* 过渡 */
         --pf-transition: 0.15s ease;
       }
-
       * {
         margin: 0;
         padding: 0;
@@ -65,47 +63,51 @@
         width: 360px;
         height: 460px;
         font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue",
+          sans-serif;
         font-size: var(--pf-fs-base);
         color: var(--pf-text-primary);
-        background: var(--pf-bg);
+        background: var(--pf-bg-secondary);
         overflow: hidden;
         display: flex;
         flex-direction: column;
       }
       /* ===== 头部 ===== */
       .header {
-        padding: var(--pf-space-base) var(--pf-space-md) 0;
+        padding: var(--pf-space-md) var(--pf-space-md) var(--pf-space-base);
         display: flex;
         align-items: center;
         gap: var(--pf-space-sm);
-        border-bottom: 1px solid var(--pf-border-light);
+        background: var(--pf-bg);
+        border-bottom: 1px solid var(--pf-border);
         flex-shrink: 0;
       }
       .header .logo {
-        font-size: var(--pf-fs-lg);
-        font-weight: 700;
+        font-size: 16px;
+        font-weight: 800;
         color: var(--pf-primary);
-        letter-spacing: -0.01em;
+        letter-spacing: -0.02em;
       }
       .header .badge {
         font-size: var(--pf-fs-xs);
-        background: var(--pf-primary);
-        color: #fff;
-        padding: 2px 6px;
-        border-radius: var(--pf-radius-sm);
+        background: var(--pf-primary-bg);
+        color: var(--pf-primary);
+        padding: 2px 8px;
+        border-radius: 10px;
         font-weight: 600;
       }
       /* ===== Tab 栏 ===== */
       .tabs {
         display: flex;
         gap: 0;
+        background: var(--pf-bg);
         padding: 0 var(--pf-space-md);
         flex-shrink: 0;
-        border-bottom: 1px solid var(--pf-border-light);
+        border-bottom: 1px solid var(--pf-border);
       }
       .tab-item {
-        padding: 10px var(--pf-space-md);
+        padding: var(--pf-space-sm) var(--pf-space-md);
+        margin-bottom: -1px;
         cursor: pointer;
         color: var(--pf-text-tertiary);
         font-size: var(--pf-fs-base);
@@ -129,11 +131,13 @@
         align-items: center;
         gap: var(--pf-space-sm);
         padding: var(--pf-space-sm) var(--pf-space-md);
+        background: var(--pf-bg);
+        border-bottom: 1px solid var(--pf-border-light);
         flex-shrink: 0;
       }
       .search-bar input {
         flex: 1;
-        padding: 7px 10px;
+        padding: 7px 12px;
         border: 1px solid var(--pf-border);
         border-radius: var(--pf-radius-base);
         background: var(--pf-bg-secondary);
@@ -147,14 +151,14 @@
       }
       .search-bar input:focus {
         border-color: var(--pf-primary);
-        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        box-shadow: 0 0 0 3px rgba(109, 74, 255, 0.1);
         background: var(--pf-bg);
       }
       .search-bar input::placeholder {
         color: var(--pf-text-placeholder);
       }
       .search-bar .btn-sm {
-        padding: 6px 10px;
+        padding: 6px 12px;
         border: none;
         border-radius: var(--pf-radius-base);
         background: var(--pf-bg-tertiary);
@@ -162,12 +166,13 @@
         cursor: pointer;
         font-size: var(--pf-fs-sm);
         white-space: nowrap;
+        font-weight: 500;
         transition:
           background var(--pf-transition),
           transform var(--pf-transition);
       }
       .search-bar .btn-sm:hover {
-        background: #e5e5ee;
+        background: #e5e8ef;
       }
       .search-bar .btn-sm:active {
         transform: scale(0.96);
@@ -178,6 +183,9 @@
         overflow: hidden;
         display: flex;
         flex-direction: column;
+        background: var(--pf-bg);
+        margin: 0;
+        border-radius: 0;
       }
       .tab-page {
         display: none;
@@ -192,7 +200,7 @@
       .list-wrap {
         flex: 1;
         overflow-y: auto;
-        padding: 6px var(--pf-space-md);
+        padding: var(--pf-space-sm) var(--pf-space-md);
       }
       .list-wrap::-webkit-scrollbar {
         width: 4px;
@@ -214,11 +222,14 @@
         align-items: flex-start;
         gap: var(--pf-space-sm);
         border: 1px solid transparent;
+        border-left: 3px solid transparent;
+        position: relative;
       }
       .list-item:hover {
-        background: var(--pf-bg-tertiary);
+        background: var(--pf-bg-secondary);
         box-shadow: var(--pf-shadow-sm);
         transform: translateY(-1px);
+        border-left-color: var(--pf-primary);
       }
       .list-item:active {
         transform: translateY(0);
@@ -229,6 +240,7 @@
       .list-item.select-mode:hover {
         transform: none;
         box-shadow: none;
+        border-left-color: transparent;
       }
       .list-item .info {
         flex: 1;
@@ -241,19 +253,20 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        margin-bottom: 3px;
+        margin-bottom: 2px;
       }
       .list-item .preview-line {
         font-size: var(--pf-fs-sm);
-        color: var(--pf-text-secondary);
+        color: var(--pf-text-tertiary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        line-height: 1.4;
       }
       .list-item .meta-line {
         font-size: var(--pf-fs-xs);
         color: var(--pf-text-tertiary);
-        margin-top: 2px;
+        margin-top: 4px;
       }
       .list-item .del-btn {
         background: transparent;
@@ -261,18 +274,22 @@
         color: var(--pf-border);
         cursor: pointer;
         font-size: 14px;
-        padding: 2px;
+        padding: 4px 6px;
         flex-shrink: 0;
-        opacity: 0;
+        opacity: 0.3;
         transition:
           opacity var(--pf-transition),
-          color var(--pf-transition);
+          color var(--pf-transition),
+          background var(--pf-transition);
+        border-radius: var(--pf-radius-sm);
       }
       .list-item:hover .del-btn {
-        opacity: 1;
+        opacity: 0.6;
       }
       .list-item .del-btn:hover {
-        color: var(--pf-danger);
+        opacity: 1;
+        color: #fff;
+        background: var(--pf-danger);
       }
       .list-item .checkbox {
         display: none;
@@ -300,6 +317,7 @@
       .footer-bar {
         padding: var(--pf-space-sm) var(--pf-space-md);
         border-top: 1px solid var(--pf-border-light);
+        background: var(--pf-bg-secondary);
         color: var(--pf-text-tertiary);
         font-size: var(--pf-fs-xs);
         flex-shrink: 0;
@@ -311,17 +329,20 @@
         background: var(--pf-primary);
         color: #fff;
         border: none;
-        padding: 4px 10px;
+        padding: 5px 12px;
         border-radius: var(--pf-radius-base);
         cursor: pointer;
         font-size: var(--pf-fs-sm);
         font-weight: 600;
+        box-shadow: var(--pf-shadow-button);
         transition:
           opacity var(--pf-transition),
-          transform var(--pf-transition);
+          transform var(--pf-transition),
+          box-shadow var(--pf-transition);
       }
       .footer-bar .add-btn:hover {
-        opacity: 0.9;
+        opacity: 0.95;
+        box-shadow: 0 4px 12px rgba(109, 74, 255, 0.35);
       }
       .footer-bar .add-btn:active {
         transform: scale(0.96);
@@ -332,7 +353,7 @@
         align-items: center;
         gap: 10px;
         padding: var(--pf-space-sm) var(--pf-space-md);
-        border-top: 1px solid var(--pf-border-light);
+        border-bottom: 1px solid var(--pf-border);
         flex-shrink: 0;
         background: var(--pf-bg-secondary);
         animation: pf-slide-up 0.15s ease;
@@ -375,7 +396,7 @@
       .confirm-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.4);
+        background: rgba(30, 30, 46, 0.5);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -384,7 +405,7 @@
       }
       .confirm-box {
         background: var(--pf-bg);
-        padding: var(--pf-space-xl);
+        padding: var(--pf-space-lg);
         border-radius: var(--pf-radius-lg);
         width: 280px;
         box-shadow: var(--pf-shadow-lg);
@@ -394,6 +415,7 @@
         font-size: var(--pf-fs-md);
         color: var(--pf-text-primary);
         margin-bottom: var(--pf-space-lg);
+        line-height: 1.5;
       }
       .confirm-box .btns {
         display: flex;
@@ -401,11 +423,12 @@
         justify-content: flex-end;
       }
       .confirm-box button {
-        padding: 7px 16px;
+        padding: 8px 16px;
         border-radius: var(--pf-radius-base);
         border: none;
         cursor: pointer;
         font-size: var(--pf-fs-base);
+        font-weight: 500;
         transition:
           background var(--pf-transition),
           transform var(--pf-transition);
@@ -422,7 +445,7 @@
         color: var(--pf-text-secondary);
       }
       .confirm-box .btn-cancel:hover {
-        background: #e5e5ee;
+        background: #e5e8ef;
       }
       .confirm-box .btn-cancel:active {
         transform: scale(0.96);
@@ -441,8 +464,9 @@
         display: flex;
       }
       .edit-panel .ep-header {
-        padding: 10px var(--pf-space-md);
-        border-bottom: 1px solid var(--pf-border-light);
+        padding: var(--pf-space-base) var(--pf-space-md);
+        background: var(--pf-bg-secondary);
+        border-bottom: 1px solid var(--pf-border);
         display: flex;
         align-items: center;
         gap: var(--pf-space-sm);
@@ -455,9 +479,13 @@
         font-size: 16px;
         cursor: pointer;
         padding: 4px;
+        border-radius: var(--pf-radius-sm);
+      }
+      .edit-panel .ep-header .ep-back:hover {
+        background: var(--pf-primary-bg);
       }
       .edit-panel .ep-header .ep-title {
-        font-weight: 600;
+        font-weight: 700;
         font-size: var(--pf-fs-md);
         color: var(--pf-text-primary);
         flex: 1;
@@ -466,10 +494,12 @@
         background: var(--pf-primary);
         color: #fff;
         border: none;
-        padding: 6px 12px;
+        padding: 7px 14px;
         border-radius: var(--pf-radius-base);
         cursor: pointer;
         font-size: var(--pf-fs-base);
+        font-weight: 600;
+        box-shadow: var(--pf-shadow-button);
         transition:
           opacity var(--pf-transition),
           transform var(--pf-transition);
@@ -483,7 +513,11 @@
         color: var(--pf-danger);
         font-size: 18px;
         cursor: pointer;
-        padding: 2px 6px;
+        padding: 4px 6px;
+        border-radius: var(--pf-radius-sm);
+      }
+      .edit-panel .ep-header .ep-delete:hover {
+        background: var(--pf-danger-bg);
       }
       .edit-panel .ep-body {
         flex: 1;
@@ -491,14 +525,14 @@
         flex-direction: column;
         padding: var(--pf-space-md);
         overflow-y: auto;
-        gap: 10px;
+        gap: var(--pf-space-base);
       }
       .edit-panel .ep-body input,
       .edit-panel .ep-body textarea {
         width: 100%;
         border: 1px solid var(--pf-border);
         border-radius: var(--pf-radius-base);
-        padding: 10px;
+        padding: 10px 12px;
         font-size: var(--pf-fs-base);
         font-family: inherit;
         color: var(--pf-text-primary);
@@ -513,7 +547,7 @@
       .edit-panel .ep-body input:focus,
       .edit-panel .ep-body textarea:focus {
         border-color: var(--pf-primary);
-        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        box-shadow: 0 0 0 3px rgba(109, 74, 255, 0.1);
         background: var(--pf-bg);
       }
       .edit-panel .ep-body textarea {
@@ -565,15 +599,16 @@
         bottom: 20px;
         left: 50%;
         transform: translateX(-50%);
-        background: #1f2937;
+        background: #1e1e2e;
         color: #fff;
-        padding: 8px 18px;
+        padding: 10px 20px;
         border-radius: var(--pf-radius-base);
         font-size: var(--pf-fs-base);
         opacity: 0;
         transition: opacity 0.3s;
         z-index: 300;
         pointer-events: none;
+        box-shadow: var(--pf-shadow-lg);
       }
     </style>
   </head>
@@ -584,7 +619,7 @@
     </div>
 
     <div class="tabs">
-      <div class="tab-item active" data-tab="prompts">📋 列表</div>
+      <div class="tab-item active" data-tab="prompts">📋 提示词</div>
       <div class="tab-item" data-tab="templates">📝 模板</div>
       <div class="tab-item" data-tab="tests">🧪 测试</div>
       <div class="tab-item" data-tab="settings">⚙️ 设置</div>
@@ -593,7 +628,7 @@
     <div class="page-container">
       <div class="tab-page active" id="prompts">
         <div class="search-bar">
-          <input type="text" id="searchInput" placeholder="搜索 Prompt..." />
+          <input type="text" id="searchInput" placeholder="搜索提示词..." />
           <button class="btn-sm" id="multiSelectBtn">多选</button>
           <button class="btn-sm" id="exitSelectBtn" style="display: none">退出</button>
         </div>
@@ -601,14 +636,14 @@
           <div id="promptList">
             <div class="empty-state">
               <div class="icon">📋</div>
-              <div>还没有保存 Prompt</div>
+              <div>还没有保存提示词</div>
             </div>
           </div>
         </div>
         <div class="batch-bar" id="batchBar">
           <label><input type="checkbox" id="selectAllCb" /> <span>全选</span></label>
-          <span id="batchLabel" style="font-size: var(--pf-fs-sm); color: var(--pf-text-secondary)"
-            >请选择要删除的 Prompt</span
+          <span id="batchLabel" style="font-size: var(--pf-fs-sm); color: var(--pf-text-tertiary)"
+            >请选择要删除的提示词</span
           >
           <button class="del-selected-btn" id="batchDelBtn" disabled>🗑 删除选中</button>
         </div>
@@ -636,7 +671,7 @@
           <label><input type="checkbox" id="tmplSelectAllCb" /> <span>全选</span></label>
           <span
             id="tmplBatchLabel"
-            style="font-size: var(--pf-fs-sm); color: var(--pf-text-secondary)"
+            style="font-size: var(--pf-fs-sm); color: var(--pf-text-tertiary)"
             >请选择要删除的模板</span
           >
           <button class="del-selected-btn" id="tmplBatchDelBtn" disabled>🗑 删除选中</button>
@@ -665,13 +700,13 @@
     <div class="edit-panel" id="editPanel">
       <div class="ep-header">
         <button class="ep-back" id="epBack">←</button>
-        <span class="ep-title">编辑 Prompt</span>
+        <span class="ep-title">编辑提示词</span>
         <button class="ep-delete" id="epDelete" title="删除">🗑</button>
         <button class="ep-save" id="epSave">💾 保存</button>
       </div>
       <div class="ep-body">
         <input type="text" id="epTitle" placeholder="标题（可选）" />
-        <textarea id="epText" placeholder="Prompt 内容"></textarea>
+        <textarea id="epText" placeholder="提示词内容"></textarea>
         <input type="text" id="epNotes" placeholder="备注（可选）" />
       </div>
     </div>

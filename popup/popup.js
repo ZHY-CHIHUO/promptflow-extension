@@ -54,8 +54,8 @@ function renderList() {
   if (filtered.length === 0) {
     listEl.innerHTML =
       allPrompts.length === 0
-        ? `<div class="empty-state"><div class="icon">📋</div><div>还没有保存 Prompt</div></div>`
-        : `<div class="empty-state"><div class="icon">🔍</div><div>没有匹配的 Prompt</div></div>`;
+        ? `<div class="empty-state"><div class="icon">📋</div><div>还没有保存提示词</div></div>`
+        : `<div class="empty-state"><div class="icon">🔍</div><div>没有匹配的提示词</div></div>`;
     updateSelectUI();
     return;
   }
@@ -104,7 +104,7 @@ function renderList() {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const id = btn.dataset.id;
-      showConfirm("确定删除这条 Prompt？", async () => {
+      showConfirm("确定删除这条提示词？", async () => {
         await chrome.runtime.sendMessage({ action: "db:deletePrompt", payload: id });
         allPrompts = allPrompts.filter((x) => x.id !== id);
         renderList();
@@ -153,7 +153,7 @@ function updateSelectUI() {
     btn.disabled = false;
   } else if (selectMode) {
     bar.classList.add("show");
-    label.textContent = "请选择要删除的 Prompt";
+    label.textContent = "请选择要删除的提示词";
     btn.disabled = true;
   } else {
     bar.classList.remove("show");
@@ -213,7 +213,7 @@ document.getElementById("exitSelectBtn").addEventListener("click", exitSelectMod
 document.getElementById("batchDelBtn").addEventListener("click", () => {
   if (selectedIds.size === 0) return;
   const count = selectedIds.size;
-  showConfirm(`确定删除选中的 ${count} 条 Prompt？`, async () => {
+  showConfirm(`确定删除选中的 ${count} 条提示词？`, async () => {
     for (const id of selectedIds) {
       await chrome.runtime.sendMessage({ action: "db:deletePrompt", payload: id });
     }
@@ -281,7 +281,7 @@ document.getElementById("epSave").addEventListener("click", async () => {
 });
 document.getElementById("epDelete").addEventListener("click", () => {
   if (!editingId) return;
-  showConfirm("确定删除这条 Prompt？", async () => {
+  showConfirm("确定删除这条提示词？", async () => {
     await chrome.runtime.sendMessage({ action: "db:deletePrompt", payload: editingId });
     allPrompts = allPrompts.filter((p) => p.id !== editingId);
     closeEditPanel();
@@ -300,7 +300,7 @@ function openEditPanel(id) {
     document.getElementById("epTitle").value = "";
     document.getElementById("epText").value = "";
     document.getElementById("epNotes").value = "";
-    document.querySelector("#editPanel .ep-title").textContent = "新建 Prompt";
+    document.querySelector("#editPanel .ep-title").textContent = "新建提示词";
     document.getElementById("epDelete").style.display = "none";
     document.getElementById("editPanel").classList.add("show");
     return;
@@ -311,7 +311,7 @@ function openEditPanel(id) {
   document.getElementById("epTitle").value = p.title || "";
   document.getElementById("epText").value = p.promptText || "";
   document.getElementById("epNotes").value = p.notes || "";
-  document.querySelector("#editPanel .ep-title").textContent = "编辑 Prompt";
+  document.querySelector("#editPanel .ep-title").textContent = "编辑提示词";
   document.getElementById("epDelete").style.display = "inline-block";
   document.getElementById("editPanel").classList.add("show");
 }

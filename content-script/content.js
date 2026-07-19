@@ -179,8 +179,7 @@ function snapBall() {
   }
 }
 
-// ========== 4. 操作面板 ==========
-// 优化：浅色主题，统一圆角/阴影/交互反馈
+// ========== 4. 操作面板 — 浅色主题 + 层次分隔 ==========
 function buildPanel() {
   const panel = document.createElement("div");
   panel.id = "promptflow-panel";
@@ -192,23 +191,25 @@ function buildPanel() {
       #promptflow-panel {
         position: fixed; width: 220px;
         background: #ffffff;
-        border: 1px solid #f0f0f2;
+        border: 1px solid #e8ecf1;
         border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06);
         z-index: 99998; display: none; flex-direction: column;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 13px; color: #1a1a2e; overflow: hidden;
+        font-size: 13px; color: #1e1e2e; overflow: hidden;
         opacity: 0; transform: translateY(6px) scale(0.97);
         transition: opacity 0.18s, transform 0.18s;
       }
       #promptflow-panel.pf-visible { opacity: 1; transform: translateY(0) scale(1); }
       #promptflow-panel .pf-title {
-        padding: 12px 14px; font-weight: 700; font-size: 14px;
-        border-bottom: 1px solid #f0f0f2; color: #1a1a2e;
+        padding: 14px 16px; font-weight: 800; font-size: 14px;
+        background: #f8f9fc;
+        border-bottom: 1px solid #e8ecf1; color: #1e1e2e;
         letter-spacing: -0.01em;
       }
       #promptflow-panel .pf-actions {
-        display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px;
+        display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 16px;
+        background: #ffffff;
       }
       #promptflow-panel .pf-btn {
         border: none; border-radius: 10px; padding: 12px 8px; min-height: 60px;
@@ -216,7 +217,7 @@ function buildPanel() {
         transition: transform 0.12s, box-shadow 0.12s;
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
       }
-      #promptflow-panel .pf-btn:hover { opacity: 0.95; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+      #promptflow-panel .pf-btn:hover { opacity: 0.95; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
       #promptflow-panel .pf-btn:active { transform: scale(0.96); opacity: 0.85; }
       #promptflow-panel .pf-btn .icon { font-size: 18px; }
       #promptflow-panel .pf-btn-save { background: linear-gradient(135deg, #10b981, #059669); }
@@ -239,6 +240,115 @@ function buildPanel() {
     </div>
   `;
   return panel;
+}
+
+// ========== 统一列表面板 — 浅色主题 + 层次分隔 ==========
+function buildListPanel() {
+  const listPanel = document.createElement("div");
+  listPanel.id = "promptflow-list-panel";
+
+  if (!document.querySelector("#promptflow-list-panel-style")) {
+    const style = document.createElement("style");
+    style.id = "promptflow-list-panel-style";
+    style.textContent = `
+      #promptflow-list-panel {
+        position: fixed; width: 280px; max-height: 420px;
+        background: #ffffff;
+        border: 1px solid #e8ecf1;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06);
+        z-index: 99999; display: none; flex-direction: column;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 13px; color: #1e1e2e; overflow: hidden;
+        opacity: 0; transform: translateY(6px) scale(0.97);
+        transition: opacity 0.18s, transform 0.18s;
+      }
+      #promptflow-list-panel.pf-visible { opacity: 1; transform: translateY(0) scale(1); }
+      #promptflow-list-panel .pf-list-header {
+        padding: 14px 16px;
+        background: #f8f9fc;
+        border-bottom: 1px solid #e8ecf1;
+        display: flex; align-items: center; justify-content: space-between;
+        cursor: move; user-select: none;
+      }
+      #promptflow-list-panel .pf-list-header:hover { background: #f0f2f6; }
+      #promptflow-list-panel .pf-list-title { font-weight: 800; font-size: 14px; color: #1e1e2e; }
+      #promptflow-list-panel .pf-list-close {
+        background: transparent; border: none; color: #8e8ea8; cursor: pointer;
+        font-size: 16px; padding: 2px 6px; border-radius: 6px;
+      }
+      #promptflow-list-panel .pf-list-close:hover { background: #f0f2f6; color: #5a5a72; }
+      #promptflow-list-panel .pf-list-tabs {
+        display: flex;
+        background: #f8f9fc;
+        border-bottom: 1px solid #e8ecf1;
+      }
+      #promptflow-list-panel .pf-list-tab {
+        flex: 1; padding: 8px 0; text-align: center; cursor: pointer;
+        color: #8e8ea8; font-size: 12px; transition: all .15s;
+        border-bottom: 2px solid transparent;
+      }
+      #promptflow-list-panel .pf-list-tab:hover { color: #5a5a72; }
+      #promptflow-list-panel .pf-list-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; }
+      #promptflow-list-panel .pf-list-tab.tmpl-active { color: #14b8a6; border-bottom-color: #14b8a6; font-weight: 600; }
+      #promptflow-list-panel .pf-list-search { padding: 10px 16px; background: #ffffff; border-bottom: 1px solid #f0f2f6; }
+      #promptflow-list-panel .pf-list-search input {
+        width: 100%; padding: 8px 12px; border: 1px solid #e8ecf1;
+        border-radius: 8px; background: #f8f9fc; color: #1e1e2e;
+        font-size: 13px; outline: none; box-sizing: border-box;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      #promptflow-list-panel .pf-list-search input:focus { border-color: #6d4aff; box-shadow: 0 0 0 3px rgba(109,74,255,0.1); background: #ffffff; }
+      #promptflow-list-panel .pf-list-search input::placeholder { color: #b0b0c4; }
+      #promptflow-list-panel .pf-list-body {
+        flex: 1; overflow-y: auto; max-height: 300px; padding: 8px 10px;
+        background: #ffffff;
+      }
+      #promptflow-list-panel .pf-list-body::-webkit-scrollbar { width: 4px; }
+      #promptflow-list-panel .pf-list-body::-webkit-scrollbar-thumb { background: #e8ecf1; border-radius: 2px; }
+      #promptflow-list-panel .pf-empty { text-align: center; padding: 30px 20px; color: #8e8ea8; font-size: 13px; }
+      #promptflow-list-panel .pf-prompt-item {
+        padding: 10px 12px; border-radius: 10px; cursor: pointer;
+        transition: background 0.1s, box-shadow 0.1s, transform 0.1s;
+        margin-bottom: 6px;
+        border-left: 3px solid transparent;
+      }
+      #promptflow-list-panel .pf-prompt-item:hover { background: #f8f9fc; box-shadow: 0 1px 2px rgba(0,0,0,0.04); transform: translateY(-1px); border-left-color: #6d4aff; }
+      #promptflow-list-panel .pf-prompt-title {
+        font-weight: 600; font-size: 13px; color: #1e1e2e;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;
+      }
+      #promptflow-list-panel .pf-prompt-preview {
+        font-size: 12px; color: #8e8ea8;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      #promptflow-list-panel .pf-tmpl-item-vars { font-size: 11px; color: #14b8a6; margin-top: 2px; }
+      #promptflow-list-panel .pf-list-footer {
+        padding: 10px 16px; border-top: 1px solid #f0f2f6;
+        background: #f8f9fc;
+        display: flex; justify-content: space-between; align-items: center;
+        color: #8e8ea8; font-size: 11px;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  listPanel.innerHTML = `
+    <div class="pf-list-header" id="pf-list-header">
+      <span class="pf-list-title">选择</span>
+      <button class="pf-list-close" id="pf-list-close">✕</button>
+    </div>
+    <div class="pf-list-tabs">
+      <div class="pf-list-tab active" data-tab="prompts">📋 Prompt</div>
+      <div class="pf-list-tab" data-tab="templates">📝 模板</div>
+    </div>
+    <div class="pf-list-search">
+      <input type="text" id="pf-list-search-input" placeholder="搜索..." />
+    </div>
+    <div class="pf-list-body" id="pf-list-body"><div class="pf-empty">加载中...</div></div>
+    <div class="pf-list-footer"><span id="pf-list-count">0 条</span></div>
+  `;
+  return listPanel;
 }
 
 const oldPanel = document.querySelector("#promptflow-panel");
