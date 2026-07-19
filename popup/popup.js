@@ -16,17 +16,18 @@ document.querySelectorAll(".tab-item").forEach((item) => {
     document.querySelectorAll(".tab-page").forEach((p) => p.classList.remove("active"));
     document.getElementById(item.dataset.tab).classList.add("active");
     if (selectMode) exitSelectMode();
+    if (tmplSelectMode) exitTmplSelectMode();
     if (item.dataset.tab === "templates") loadTemplates();
   });
 });
 
-// ============ 搜索 ============
+// ============ Prompt 搜索 ============
 document.getElementById("searchInput").addEventListener("input", (e) => {
   currentKeyword = e.target.value.trim();
   renderList();
 });
 
-// ============ 加载 ============
+// ============ Prompt 加载 ============
 async function loadPrompts() {
   try {
     const result = await chrome.runtime.sendMessage({ action: "db:getAllPrompts" });
@@ -38,7 +39,7 @@ async function loadPrompts() {
   renderList();
 }
 
-// ============ 渲染列表 ============
+// ============ Prompt 列表渲染 ============
 function renderList() {
   const listEl = document.getElementById("promptList");
   const countEl = document.getElementById("promptCount");
@@ -120,7 +121,7 @@ function renderList() {
   });
 }
 
-// ============ 多选模式 ============
+// ============ Prompt 多选模式 ============
 function toggleSelect(id, cb) {
   if (selectedIds.has(id)) {
     selectedIds.delete(id);
@@ -183,7 +184,7 @@ document.getElementById("selectAllCb").addEventListener("change", (e) => {
   } else {
     filtered.forEach((p) => selectedIds.delete(p.id));
   }
-  document.querySelectorAll(".checkbox").forEach((cb) => {
+  document.querySelectorAll("#promptList .checkbox").forEach((cb) => {
     cb.checked = selectedIds.has(cb.dataset.id);
   });
   updateSelectUI();
@@ -234,10 +235,29 @@ async function fillToPage(p) {
   }
 }
 
-// ============ 编辑面板 ============
+// ============ Prompt 编辑面板 ============
 document.getElementById("epBack").addEventListener("click", closeEditPanel);
 document.getElementById("epSave").addEventListener("click", async () => {
-  if (!editingId) return;
+  if (!editingId) {
+    const title = document.getElementById("epTitle").value.trim();
+    const promptText = document.getElementById("epText").value.trim();
+    const notes = document.getElementById("epNotes").value.trim();
+    if (!promptText) {
+      toast("内容不能为空");
+      return;
+    }
+    const result = await chrome.runtime.sendMessage({
+      action: "db:addPrompt",
+      payload: { promptText, title, notes, source: "popup", platform: "manual" },
+    });
+    if (result && !result.error) {
+      allPrompts.unshift(result);
+    }
+    closeEditPanel();
+    renderList();
+    toast("已保存");
+    return;
+  }
   const title = document.getElementById("epTitle").value.trim();
   const promptText = document.getElementById("epText").value.trim();
   const notes = document.getElementById("epNotes").value.trim();
@@ -270,13 +290,29 @@ document.getElementById("epDelete").addEventListener("click", () => {
   });
 });
 
+document.getElementById("promptAddBtn").addEventListener("click", () => {
+  openEditPanel(null);
+});
+
 function openEditPanel(id) {
+  if (id === null) {
+    editingId = null;
+    document.getElementById("epTitle").value = "";
+    document.getElementById("epText").value = "";
+    document.getElementById("epNotes").value = "";
+    document.querySelector("#editPanel .ep-title").textContent = "新建 Prompt";
+    document.getElementById("epDelete").style.display = "none";
+    document.getElementById("editPanel").classList.add("show");
+    return;
+  }
   const p = allPrompts.find((x) => x.id === id);
   if (!p) return;
   editingId = id;
   document.getElementById("epTitle").value = p.title || "";
   document.getElementById("epText").value = p.promptText || "";
   document.getElementById("epNotes").value = p.notes || "";
+  document.querySelector("#editPanel .ep-title").textContent = "编辑 Prompt";
+  document.getElementById("epDelete").style.display = "inline-block";
   document.getElementById("editPanel").classList.add("show");
 }
 function closeEditPanel() {
@@ -290,6 +326,9 @@ function closeEditPanel() {
 let allTemplates = [];
 let templateKeyword = "";
 let editingTemplateId = null;
+
+let tmplSelectMode = false;
+let tmplSelectedIds = new Set();
 
 document.getElementById("tmplSearchInput").addEventListener("input", (e) => {
   templateKeyword = e.target.value.trim();
@@ -323,6 +362,7 @@ function renderTemplateList() {
       allTemplates.length === 0
         ? `<div class="empty-state"><div class="icon">📝</div><div>还没有模板，点击右下角新建</div></div>`
         : `<div class="empty-state"><div class="icon">🔍</div><div>没有匹配的模板</div></div>`;
+    updateTmplSelectUI();
     return;
   }
   listEl.innerHTML = filtered
@@ -331,21 +371,28 @@ function renderTemplateList() {
         t.title || t.templateText.slice(0, 15) + (t.templateText.length > 15 ? "..." : "");
       const preview = t.templateText.slice(0, 60) + (t.templateText.length > 60 ? "..." : "");
       const vars = t.variables?.length > 0 ? `变量: ${t.variables.join(", ")}` : "";
-      return `<div class="list-item" data-id="${t.id}">
+      const checked = tmplSelectedIds.has(t.id) ? "checked" : "";
+      return `<div class="list-item ${tmplSelectMode ? "select-mode" : ""}" data-id="${t.id}">
+        <input type="checkbox" class="checkbox" data-id="${t.id}" ${checked} />
         <div class="info">
           <div class="title-line">${escapeHtml(title)}</div>
           <div class="preview-line">${escapeHtml(preview)}</div>
           <div class="meta-line">${formatTime(t.createdAt)}${vars ? " · " + vars : ""}</div>
         </div>
-        <button class="del-btn" data-id="${t.id}" title="删除">🗑</button>
+        ${!tmplSelectMode ? `<button class="del-btn" data-id="${t.id}" title="删除">🗑</button>` : ""}
       </div>`;
     })
     .join("");
 
   listEl.querySelectorAll(".list-item .info").forEach((info) => {
     let clickTimer = null;
-    info.addEventListener("click", () => {
+    info.addEventListener("click", (e) => {
+      e.stopPropagation();
       const id = info.closest(".list-item").dataset.id;
+      if (tmplSelectMode) {
+        toggleTmplSelect(id, info.closest(".list-item").querySelector(".checkbox"));
+        return;
+      }
       if (clickTimer) {
         clearTimeout(clickTimer);
         clickTimer = null;
@@ -372,7 +419,115 @@ function renderTemplateList() {
       });
     });
   });
+
+  listEl.querySelectorAll(".checkbox").forEach((cb) => {
+    cb.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleTmplSelect(cb.dataset.id, cb);
+    });
+  });
 }
+
+function toggleTmplSelect(id, cb) {
+  if (tmplSelectedIds.has(id)) {
+    tmplSelectedIds.delete(id);
+    if (cb) cb.checked = false;
+  } else {
+    tmplSelectedIds.add(id);
+    if (cb) cb.checked = true;
+  }
+  updateTmplSelectUI();
+}
+
+function updateTmplSelectUI() {
+  const count = tmplSelectedIds.size;
+  const bar = document.getElementById("tmplBatchBar");
+  const label = document.getElementById("tmplBatchLabel");
+  const btn = document.getElementById("tmplBatchDelBtn");
+  const selectAllCb = document.getElementById("tmplSelectAllCb");
+  const filtered = templateKeyword
+    ? allTemplates.filter(
+        (t) =>
+          (t.templateText || "").toLowerCase().includes(templateKeyword.toLowerCase()) ||
+          (t.title || "").toLowerCase().includes(templateKeyword.toLowerCase()),
+      )
+    : allTemplates;
+
+  if (tmplSelectMode && count > 0) {
+    bar.classList.add("show");
+    label.textContent = `已选 ${count} 条`;
+    btn.disabled = false;
+  } else if (tmplSelectMode) {
+    bar.classList.add("show");
+    label.textContent = "请选择要删除的模板";
+    btn.disabled = true;
+  } else {
+    bar.classList.remove("show");
+  }
+
+  if (selectAllCb) {
+    if (tmplSelectMode && filtered.length > 0) {
+      selectAllCb.checked = count === filtered.length;
+      selectAllCb.indeterminate = count > 0 && count < filtered.length;
+    } else {
+      selectAllCb.checked = false;
+      selectAllCb.indeterminate = false;
+    }
+  }
+}
+
+document.getElementById("tmplSelectAllCb").addEventListener("change", (e) => {
+  const checked = e.target.checked;
+  const filtered = templateKeyword
+    ? allTemplates.filter(
+        (t) =>
+          (t.templateText || "").toLowerCase().includes(templateKeyword.toLowerCase()) ||
+          (t.title || "").toLowerCase().includes(templateKeyword.toLowerCase()),
+      )
+    : allTemplates;
+  if (checked) {
+    filtered.forEach((t) => tmplSelectedIds.add(t.id));
+  } else {
+    filtered.forEach((t) => tmplSelectedIds.delete(t.id));
+  }
+  document.querySelectorAll("#tmplList .checkbox").forEach((cb) => {
+    cb.checked = tmplSelectedIds.has(cb.dataset.id);
+  });
+  updateTmplSelectUI();
+});
+
+function enterTmplSelectMode() {
+  tmplSelectMode = true;
+  tmplSelectedIds.clear();
+  document.getElementById("tmplMultiSelectBtn").style.display = "none";
+  document.getElementById("tmplExitSelectBtn").style.display = "inline-block";
+  renderTemplateList();
+}
+
+function exitTmplSelectMode() {
+  tmplSelectMode = false;
+  tmplSelectedIds.clear();
+  document.getElementById("tmplMultiSelectBtn").style.display = "inline-block";
+  document.getElementById("tmplExitSelectBtn").style.display = "none";
+  document.getElementById("tmplBatchBar").classList.remove("show");
+  renderTemplateList();
+}
+
+document.getElementById("tmplMultiSelectBtn").addEventListener("click", enterTmplSelectMode);
+document.getElementById("tmplExitSelectBtn").addEventListener("click", exitTmplSelectMode);
+
+document.getElementById("tmplBatchDelBtn").addEventListener("click", () => {
+  if (tmplSelectedIds.size === 0) return;
+  const count = tmplSelectedIds.size;
+  showConfirm(`确定删除选中的 ${count} 条模板？`, async () => {
+    for (const id of tmplSelectedIds) {
+      await chrome.runtime.sendMessage({ action: "db:deleteTemplate", payload: id });
+    }
+    allTemplates = allTemplates.filter((t) => !tmplSelectedIds.has(t.id));
+    exitTmplSelectMode();
+    toast(`已删除 ${count} 条`);
+  });
+});
 
 function useTemplate(template) {
   const vars = extractVariables(template.templateText);
@@ -380,13 +535,7 @@ function useTemplate(template) {
     fillTemplateToPage(template.templateText);
     return;
   }
-  showVariableDialog(template.title || "使用模板", vars, (values) => {
-    let result = template.templateText;
-    for (const [key, val] of Object.entries(values)) {
-      result = result.replace(new RegExp(escapeRegex(`{{${key}}}`), "g"), val);
-    }
-    fillTemplateToPage(result);
-  });
+  showVariableDialog(template.title || "使用模板", vars, template.templateText);
 }
 
 function extractVariables(text) {
@@ -410,41 +559,21 @@ async function fillTemplateToPage(text) {
   }
 }
 
-function showVariableDialog(title, variables, onSubmit) {
-  const container = document.getElementById("confirmContainer");
-  const inputs = variables
-    .map((v) => {
-      const label = v.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-      return `<div style="margin-bottom:10px">
-        <label style="display:block;font-size:12px;color:#888;margin-bottom:4px">${label}</label>
-        <input id="var-${v}" class="var-input" placeholder="输入 ${label}"
-          style="width:100%;padding:8px 10px;border:1px solid #e0e0e5;border-radius:8px;background:#f5f5f8;color:#333;font-size:13px;outline:none;box-sizing:border-box" />
-      </div>`;
-    })
-    .join("");
-  container.innerHTML = `
-    <div class="confirm-overlay">
-      <div class="confirm-box" style="width:320px">
-        <p style="font-weight:600;font-size:14px;margin-bottom:12px">${escapeHtml(title)}</p>
-        <form id="varForm" onsubmit="return false">
-          ${inputs}
-          <div class="btns" style="margin-top:14px">
-            <button class="btn-cancel" id="varCancel" type="button">取消</button>
-            <button class="btn-confirm" id="varOk" type="submit" style="background:#7c3aed">填入</button>
-          </div>
-        </form>
-      </div>
-    </div>`;
-  document.getElementById("varCancel").addEventListener("click", () => {
-    container.innerHTML = "";
-  });
-  document.getElementById("varOk").addEventListener("click", () => {
-    const values = {};
-    for (const v of variables) {
-      values[v] = document.getElementById(`var-${v}`).value.trim() || `{{${v}}}`;
+function showVariableDialog(title, variables, templateText) {
+  chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+    if (!tab) {
+      toast("⚠️ 未找到活动标签页");
+      return;
     }
-    container.innerHTML = "";
-    onSubmit(values);
+    chrome.tabs
+      .sendMessage(tab.id, {
+        action: "showTemplateDialog",
+        title: title,
+        variables: variables,
+        templateText: templateText,
+      })
+      .catch(() => {});
+    window.close();
   });
 }
 

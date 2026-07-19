@@ -158,7 +158,6 @@ document.addEventListener("mouseup", (e) => {
   ball.style.transition = "box-shadow .15s,right .3s ease,left .3s ease";
   snapBall();
   savePosition();
-
   if (Math.abs(e.clientX - sx) < 3 && Math.abs(e.clientY - sy) < 3) {
     togglePanel();
   }
@@ -181,6 +180,7 @@ function snapBall() {
 }
 
 // ========== 4. 操作面板 ==========
+// 优化：浅色主题，统一圆角/阴影/交互反馈
 function buildPanel() {
   const panel = document.createElement("div");
   panel.id = "promptflow-panel";
@@ -191,20 +191,21 @@ function buildPanel() {
     style.textContent = `
       #promptflow-panel {
         position: fixed; width: 220px;
-        background: #1e1e2e;
-        border: 1px solid rgba(255,255,255,0.08);
+        background: #ffffff;
+        border: 1px solid #f0f0f2;
         border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
         z-index: 99998; display: none; flex-direction: column;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 13px; color: #e0e0e0; overflow: hidden;
+        font-size: 13px; color: #1a1a2e; overflow: hidden;
         opacity: 0; transform: translateY(6px) scale(0.97);
         transition: opacity 0.18s, transform 0.18s;
       }
       #promptflow-panel.pf-visible { opacity: 1; transform: translateY(0) scale(1); }
       #promptflow-panel .pf-title {
-        padding: 12px 14px; font-weight: 600; font-size: 14px;
-        border-bottom: 1px solid rgba(255,255,255,0.06); color: #f0f0f0;
+        padding: 12px 14px; font-weight: 700; font-size: 14px;
+        border-bottom: 1px solid #f0f0f2; color: #1a1a2e;
+        letter-spacing: -0.01em;
       }
       #promptflow-panel .pf-actions {
         display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px;
@@ -212,18 +213,17 @@ function buildPanel() {
       #promptflow-panel .pf-btn {
         border: none; border-radius: 10px; padding: 12px 8px; min-height: 60px;
         color: #fff; cursor: pointer; font-size: 13px; font-weight: 600;
-        transition: transform 0.12s, opacity 0.12s;
+        transition: transform 0.12s, box-shadow 0.12s;
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
       }
-      #promptflow-panel .pf-btn:hover { opacity: 0.9; }
-      #promptflow-panel .pf-btn:active { transform: scale(0.95); }
+      #promptflow-panel .pf-btn:hover { opacity: 0.95; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+      #promptflow-panel .pf-btn:active { transform: scale(0.96); opacity: 0.85; }
       #promptflow-panel .pf-btn .icon { font-size: 18px; }
       #promptflow-panel .pf-btn-save { background: linear-gradient(135deg, #10b981, #059669); }
       #promptflow-panel .pf-btn-optimize { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
       #promptflow-panel .pf-btn-view { background: linear-gradient(135deg, #3b82f6, #2563eb); }
       #promptflow-panel .pf-btn-manage { background: linear-gradient(135deg, #6b7280, #4b5563); }
       #promptflow-panel .pf-btn-extract { background: linear-gradient(135deg, #f59e0b, #d97706); }
-      #promptflow-panel .pf-btn-save-tmpl { background: linear-gradient(135deg, #ec4899, #db2777); }
     `;
     document.head.appendChild(style);
   }
@@ -233,10 +233,9 @@ function buildPanel() {
     <div class="pf-actions">
       <button class="pf-btn pf-btn-save" id="pf-btn-save"><span class="icon">💾</span><span>保存</span></button>
       <button class="pf-btn pf-btn-optimize" id="pf-btn-optimize"><span class="icon">✨</span><span>优化</span></button>
-      <button class="pf-btn pf-btn-view" id="pf-btn-view"><span class="icon">📋</span><span>查看Prompt</span></button>
+      <button class="pf-btn pf-btn-view" id="pf-btn-view"><span class="icon">📋</span><span>查看</span></button>
       <button class="pf-btn pf-btn-manage" id="pf-btn-manage"><span class="icon">⚙️</span><span>管理</span></button>
       <button class="pf-btn pf-btn-extract" id="pf-btn-extract"><span class="icon">📥</span><span>提取回复</span></button>
-      <button class="pf-btn pf-btn-save-tmpl" id="pf-btn-save-tmpl"><span class="icon">📝</span><span>存为模板</span></button>
     </div>
   `;
   return panel;
@@ -253,7 +252,6 @@ const btnOptimize = panel.querySelector("#pf-btn-optimize");
 const btnView = panel.querySelector("#pf-btn-view");
 const btnManage = panel.querySelector("#pf-btn-manage");
 const btnExtract = panel.querySelector("#pf-btn-extract");
-const btnSaveTmpl = panel.querySelector("#pf-btn-save-tmpl");
 
 // ========== 5. 面板定位 ==========
 function positionPanel(target, width, height) {
@@ -289,9 +287,7 @@ function showPanel() {
 
 function hidePanel() {
   panel.classList.remove("pf-visible");
-  setTimeout(() => {
-    panel.style.display = "none";
-  }, 180);
+  setTimeout(() => (panel.style.display = "none"), 180);
   hideListPanel();
 }
 
@@ -316,7 +312,10 @@ document.addEventListener("click", (e) => {
 });
 panel.addEventListener("click", (e) => e.stopPropagation());
 
-// ========== 7. Prompt 列表面板 ==========
+// ==================================================================
+// 统一列表面板（Prompt + 模板 Tab 切换）
+// 优化：浅色主题，列表项 hover 上浮效果，统一圆角/阴影
+// ==================================================================
 function buildListPanel() {
   const listPanel = document.createElement("div");
   listPanel.id = "promptflow-list-panel";
@@ -327,54 +326,72 @@ function buildListPanel() {
     style.textContent = `
       #promptflow-list-panel {
         position: fixed; width: 280px; max-height: 420px;
-        background: #1e1e2e; border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+        background: #ffffff;
+        border: 1px solid #f0f0f2;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
         z-index: 99999; display: none; flex-direction: column;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 13px; color: #e0e0e0; overflow: hidden;
+        font-size: 13px; color: #1a1a2e; overflow: hidden;
         opacity: 0; transform: translateY(6px) scale(0.97);
         transition: opacity 0.18s, transform 0.18s;
       }
       #promptflow-list-panel.pf-visible { opacity: 1; transform: translateY(0) scale(1); }
       #promptflow-list-panel .pf-list-header {
-        padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.06);
+        padding: 12px 14px; border-bottom: 1px solid #f0f0f2;
         display: flex; align-items: center; justify-content: space-between;
         cursor: move; user-select: none;
       }
-      #promptflow-list-panel .pf-list-header:hover { background: rgba(255,255,255,0.03); }
-      #promptflow-list-panel .pf-list-title { font-weight: 600; font-size: 14px; color: #f0f0f0; }
+      #promptflow-list-panel .pf-list-header:hover { background: #fafafb; }
+      #promptflow-list-panel .pf-list-title { font-weight: 700; font-size: 14px; color: #1a1a2e; }
       #promptflow-list-panel .pf-list-close {
-        background: transparent; border: none; color: #888; cursor: pointer;
+        background: transparent; border: none; color: #9b9bb0; cursor: pointer;
         font-size: 16px; padding: 2px 6px; border-radius: 6px;
       }
-      #promptflow-list-panel .pf-list-close:hover { background: rgba(255,255,255,0.06); color: #fff; }
-      #promptflow-list-panel .pf-list-search { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-      #promptflow-list-panel .pf-list-search input {
-        width: 100%; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 8px; background: rgba(255,255,255,0.06); color: #e0e0e0;
-        font-size: 13px; outline: none;
+      #promptflow-list-panel .pf-list-close:hover { background: #f0f0f5; color: #6b6b80; }
+      #promptflow-list-panel .pf-list-tabs { display: flex; border-bottom: 1px solid #f0f0f2; }
+      #promptflow-list-panel .pf-list-tab {
+        flex: 1; padding: 8px 0; text-align: center; cursor: pointer;
+        color: #9b9bb0; font-size: 12px; transition: all .15s;
+        border-bottom: 2px solid transparent;
       }
-      #promptflow-list-panel .pf-list-search input::placeholder { color: #666; }
+      #promptflow-list-panel .pf-list-tab:hover { color: #6b6b80; }
+      #promptflow-list-panel .pf-list-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; }
+      #promptflow-list-panel .pf-list-tab.tmpl-active { color: #14b8a6; border-bottom-color: #14b8a6; font-weight: 600; }
+      #promptflow-list-panel .pf-list-search { padding: 10px 14px; border-bottom: 1px solid #f0f0f2; }
+      #promptflow-list-panel .pf-list-search input {
+        width: 100%; padding: 8px 10px; border: 1px solid #e8e8ee;
+        border-radius: 8px; background: #fafafb; color: #1a1a2e;
+        font-size: 13px; outline: none; box-sizing: border-box;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      #promptflow-list-panel .pf-list-search input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+      #promptflow-list-panel .pf-list-search input::placeholder { color: #b8b8cc; }
       #promptflow-list-panel .pf-list-body {
         flex: 1; overflow-y: auto; max-height: 300px; padding: 6px 8px;
       }
       #promptflow-list-panel .pf-list-body::-webkit-scrollbar { width: 4px; }
-      #promptflow-list-panel .pf-list-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
-      #promptflow-list-panel .pf-empty { text-align: center; padding: 30px 20px; color: #666; font-size: 13px; }
+      #promptflow-list-panel .pf-list-body::-webkit-scrollbar-thumb { background: #e8e8ee; border-radius: 2px; }
+      #promptflow-list-panel .pf-empty { text-align: center; padding: 30px 20px; color: #9b9bb0; font-size: 13px; }
       #promptflow-list-panel .pf-prompt-item {
-        padding: 10px 12px; border-radius: 8px; cursor: pointer; transition: background 0.1s; margin-bottom: 2px;
+        padding: 10px 12px; border-radius: 10px; cursor: pointer;
+        transition: background 0.1s, box-shadow 0.1s, transform 0.1s;
+        margin-bottom: 4px;
       }
-      #promptflow-list-panel .pf-prompt-item:hover { background: rgba(255,255,255,0.05); }
+      #promptflow-list-panel .pf-prompt-item:hover { background: #f0f0f5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); transform: translateY(-1px); }
       #promptflow-list-panel .pf-prompt-title {
-        font-weight: 600; font-size: 13px; color: #f0f0f0;
+        font-weight: 600; font-size: 13px; color: #1a1a2e;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px;
       }
       #promptflow-list-panel .pf-prompt-preview {
-        font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        font-size: 12px; color: #6b6b80;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
+      #promptflow-list-panel .pf-tmpl-item-vars { font-size: 11px; color: #14b8a6; margin-top: 2px; }
       #promptflow-list-panel .pf-list-footer {
-        padding: 10px 14px; border-top: 1px solid rgba(255,255,255,0.06);
-        display: flex; justify-content: space-between; align-items: center; color: #888; font-size: 11px;
+        padding: 10px 14px; border-top: 1px solid #f0f0f2;
+        display: flex; justify-content: space-between; align-items: center;
+        color: #9b9bb0; font-size: 11px;
       }
     `;
     document.head.appendChild(style);
@@ -382,11 +399,15 @@ function buildListPanel() {
 
   listPanel.innerHTML = `
     <div class="pf-list-header" id="pf-list-header">
-      <span class="pf-list-title">选择 Prompt</span>
+      <span class="pf-list-title">选择</span>
       <button class="pf-list-close" id="pf-list-close">✕</button>
     </div>
+    <div class="pf-list-tabs">
+      <div class="pf-list-tab active" data-tab="prompts">📋 Prompt</div>
+      <div class="pf-list-tab" data-tab="templates">📝 模板</div>
+    </div>
     <div class="pf-list-search">
-      <input type="text" id="pf-list-search-input" placeholder="搜索 Prompt..." />
+      <input type="text" id="pf-list-search-input" placeholder="搜索..." />
     </div>
     <div class="pf-list-body" id="pf-list-body"><div class="pf-empty">加载中...</div></div>
     <div class="pf-list-footer"><span id="pf-list-count">0 条</span></div>
@@ -405,8 +426,10 @@ const listBody = listPanel.querySelector("#pf-list-body");
 const listCount = listPanel.querySelector("#pf-list-count");
 const listSearchInput = listPanel.querySelector("#pf-list-search-input");
 const listCloseBtn = listPanel.querySelector("#pf-list-close");
+const listTabs = listPanel.querySelectorAll(".pf-list-tab");
 
-// 列表面板拖动
+let currentListTab = "prompts";
+
 let listDragging = false,
   listStartX = 0,
   listStartY = 0,
@@ -441,18 +464,30 @@ document.addEventListener("mouseup", () => {
 });
 
 // ========== 8. 列表面板显隐 ==========
-function showListPanel() {
+function showListPanel(tab) {
+  tab = tab || "prompts";
+  currentListTab = tab;
+  listTabs.forEach((t) => {
+    t.classList.remove("active", "tmpl-active");
+    if (t.dataset.tab === tab) {
+      t.classList.add(tab === "templates" ? "tmpl-active" : "active");
+    }
+  });
   listPanel.style.display = "flex";
   requestAnimationFrame(() => listPanel.classList.add("pf-visible"));
   requestAnimationFrame(() => positionPanel(listPanel, 280, 420));
-  loadPromptList();
+  if (tab === "templates") {
+    listSearchInput.placeholder = "搜索模板...";
+    loadTemplateList();
+  } else {
+    listSearchInput.placeholder = "搜索 Prompt...";
+    loadPromptList();
+  }
 }
 
 function hideListPanel() {
   listPanel.classList.remove("pf-visible");
-  setTimeout(() => {
-    listPanel.style.display = "none";
-  }, 180);
+  setTimeout(() => (listPanel.style.display = "none"), 180);
 }
 
 listCloseBtn.addEventListener("click", (e) => {
@@ -472,6 +507,43 @@ document.addEventListener("click", (e) => {
   }
 });
 listPanel.addEventListener("click", (e) => e.stopPropagation());
+
+// Tab 切换事件
+listTabs.forEach((tab) => {
+  tab.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const targetTab = tab.dataset.tab;
+    if (targetTab === currentListTab) return;
+    currentListTab = targetTab;
+    listTabs.forEach((t) => {
+      t.classList.remove("active", "tmpl-active");
+      if (t.dataset.tab === targetTab) {
+        t.classList.add(targetTab === "templates" ? "tmpl-active" : "active");
+      }
+    });
+    listSearchInput.value = "";
+    if (targetTab === "templates") {
+      listSearchInput.placeholder = "搜索模板...";
+      loadTemplateList();
+    } else {
+      listSearchInput.placeholder = "搜索 Prompt...";
+      loadPromptList();
+    }
+  });
+});
+
+let listSearchTimer;
+listSearchInput.addEventListener("input", () => {
+  clearTimeout(listSearchTimer);
+  listSearchTimer = setTimeout(() => {
+    const keyword = listSearchInput.value.trim();
+    if (currentListTab === "templates") {
+      loadTemplateList(keyword);
+    } else {
+      loadPromptList(keyword);
+    }
+  }, 250);
+});
 
 // ========== 9. Prompt 列表加载与回填 ==========
 async function loadPromptList(keyword) {
@@ -501,7 +573,7 @@ async function loadPromptList(keyword) {
       .map((p) => {
         const title = p.title || p.promptText?.slice(0, 30) || "无标题";
         const content = p.content || p.promptText || "";
-        const preview = content.slice(0, 50).replace(/\n/g, " ");
+        const preview = content.slice(0, 50).replace(/</g, "&lt;").replace(/>/g, "&gt;");
         return `<div class="pf-prompt-item" data-id="${p.id}">
           <div class="pf-prompt-title">${escapeHtml(title)}</div>
           <div class="pf-prompt-preview">${escapeHtml(preview)}</div>
@@ -516,14 +588,6 @@ async function loadPromptList(keyword) {
     });
   });
 }
-
-let searchTimer;
-listSearchInput.addEventListener("input", () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => {
-    loadPromptList(listSearchInput.value.trim());
-  }, 250);
-});
 
 async function fillPromptById(promptId) {
   let content;
@@ -551,6 +615,115 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// ========== 模板列表加载与回填 ==========
+async function loadTemplateList(keyword) {
+  keyword = keyword || "";
+  listBody.innerHTML = '<div class="pf-empty">加载中...</div>';
+  let templates;
+  try {
+    const res = await chrome.runtime.sendMessage({ action: "db:getAllTemplates" });
+    templates = Array.isArray(res) ? res : [];
+  } catch (err) {
+    templates = [];
+  }
+  if (keyword) {
+    const kw = keyword.toLowerCase();
+    templates = templates.filter(
+      (t) =>
+        (t.title || "").toLowerCase().includes(kw) ||
+        (t.templateText || "").toLowerCase().includes(kw),
+    );
+  }
+  if (templates.length === 0) {
+    listBody.innerHTML = '<div class="pf-empty">还没有保存的模板</div>';
+    listCount.textContent = "0 条";
+  } else {
+    listBody.innerHTML = templates
+      .map((t) => {
+        const title = t.title || t.templateText?.slice(0, 30) || "无标题";
+        const preview = (t.templateText || "")
+          .slice(0, 50)
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+        const vars = t.variables?.length > 0 ? `📝 ${t.variables.length} 个变量` : "";
+        return `<div class="pf-prompt-item" data-id="${t.id}">
+          <div class="pf-prompt-title">${escapeHtml(title)}</div>
+          <div class="pf-prompt-preview">${escapeHtml(preview)}</div>
+          ${vars ? `<div class="pf-tmpl-item-vars">${vars}</div>` : ""}
+        </div>`;
+      })
+      .join("");
+    listCount.textContent = `${templates.length} 条`;
+  }
+  listBody.querySelectorAll(".pf-prompt-item").forEach((item) => {
+    item.addEventListener("click", async () => {
+      await fillTemplateById(item.dataset.id);
+    });
+  });
+}
+
+async function fillTemplateById(templateId) {
+  let template;
+  try {
+    const res = await chrome.runtime.sendMessage({ action: "db:getAllTemplates" });
+    const templates = Array.isArray(res) ? res : [];
+    template = templates.find((t) => t.id === templateId);
+  } catch (err) {
+    console.error("[PromptFlow] getTemplate failed:", err);
+    return toast("❌ 获取失败");
+  }
+  if (!template) return toast("⚠️ 模板不存在");
+
+  const templateText = template.templateText || "";
+  if (!templateText) return toast("⚠️ 模板内容为空");
+
+  const vars = extractTemplateVariables(templateText);
+  if (vars.length === 0) {
+    const success = setInputText(templateText);
+    if (success) {
+      toast("✅ 已填入模板");
+    } else {
+      toast("⚠️ 未找到输入框");
+    }
+    hideListPanel();
+    hidePanel();
+  } else {
+    hideListPanel();
+    hidePanel();
+
+    showVariableDialog(
+      template.title || "使用模板",
+      vars,
+      templateText,
+      (values) => {
+        let result = templateText;
+        for (const [key, val] of Object.entries(values)) {
+          result = result.replace(new RegExp(escapeRegex(`{{${key}}}`), "g"), val);
+        }
+        const success = setInputText(result);
+        if (success) {
+          toast("✅ 已填入模板");
+        } else {
+          toast("⚠️ 未找到输入框");
+        }
+      },
+      () => {
+        showListPanel("templates");
+      },
+    );
+  }
+}
+
+function extractTemplateVariables(text) {
+  const matches = text.match(/\{\{([^}]+)\}\}/g);
+  if (!matches) return [];
+  return [...new Set(matches.map((m) => m.slice(2, -2).trim()))];
+}
+
 // ========== 10. 按钮事件 ==========
 btnSave.addEventListener("click", (e) => {
   e.stopPropagation();
@@ -562,24 +735,18 @@ btnOptimize.addEventListener("click", (e) => {
 });
 btnView.addEventListener("click", (e) => {
   e.stopPropagation();
-  showListPanel();
+  showListPanel("prompts");
 });
 btnManage.addEventListener("click", (e) => {
   e.stopPropagation();
   try {
     chrome.runtime.sendMessage({ action: "openPopup" });
-  } catch (_) {
-    /* ignore */
-  }
+  } catch (_) {}
   toast("📋 请点击浏览器工具栏的扩展图标打开管理面板");
 });
 btnExtract.addEventListener("click", (e) => {
   e.stopPropagation();
   extractAndSaveResponse();
-});
-btnSaveTmpl.addEventListener("click", (e) => {
-  e.stopPropagation();
-  extractAndSaveAsTemplate();
 });
 
 // ========== 11. 消息通信 ==========
@@ -593,6 +760,17 @@ chrome.runtime.onMessage.addListener((req, sender, res) => {
     return true;
   }
   if (req.action === "refreshPanel") {
+    return true;
+  }
+  if (req.action === "showTemplateDialog") {
+    showVariableDialog(req.title, req.variables, req.templateText, (values) => {
+      let result = req.templateText;
+      for (const [key, val] of Object.entries(values)) {
+        result = result.replace(new RegExp(escapeRegex(`{{${key}}}`), "g"), val);
+      }
+      setInputText(result);
+      toast("✅ 已填入模板");
+    });
     return true;
   }
 });
@@ -619,35 +797,31 @@ async function savePrompt() {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
-  if (r?.error === "DUPLICATE") {
-    toast("⚠️ 已保存过");
-  } else if (r && !r.error) {
-    toast("✅ 已保存！");
-  } else {
-    toast("❌ " + (r?.error || "失败"));
-  }
+  if (r?.error === "DUPLICATE") toast("⚠️ 已保存过");
+  else if (r && !r.error) toast("✅ 已保存！");
+  else toast("❌ " + (r?.error || "失败"));
 }
 
 function optimizePrompt() {
   const text = getInputText();
   if (!text) return toast("⚠️ 输入框为空");
   setInputText(
-    "你是一位世界级的提示词优化专家。请对以下提示词做两件事，注意：两段之间必须用单独一行 --- 分隔，不得遗漏。\n\n" +
-      "【优化版】\n" +
-      "优化以下提示词，使其更加清晰、结构化、可操作。\n\n" +
-      "---\n\n" +
-      "【模板版】\n" +
+    "你是一位世界级的提示词优化专家。请对以下提示词做两件事，注意：两段之间必须用单独一行 --- 分隔，不得遗漏。" +
+      "【优化版】" +
+      "优化以下提示词，使其更加清晰、结构化、可操作。" +
+      "---" +
+      "【模板版】" +
       "分析原提示词，将其改写为一个可复用的模板。核心规则：变量必须使用中文命名，例如 {{项目名称}}、{{目标语言}}、{{角色}}、" +
-      "{{输出格式}}、{{核心要求}} 等，禁止使用英文变量名如 {{projectName}}、{{language}} 等。\n\n" +
-      "直接输出上述两个版本，不要加任何额外解释。\n\n" +
-      "原提示词：\n" +
+      "{{输出格式}}、{{核心要求}} 等，禁止使用英文变量名如 {{projectName}}、{{language}} 等。" +
+      "直接输出上述两个版本，不要加任何额外解释。" +
+      "原提示词：" +
       text,
   );
   toast("✨ 已填入优化+模板请求，请手动发送");
 }
 
 // ============================================================
-// 提取AI回复并保存（增强版解析）
+// 提取AI回复并保存
 // ============================================================
 
 function findLastAIResponse() {
@@ -697,24 +871,19 @@ function extractAndSaveAsTemplate() {
   saveTextAsTemplate(templateText);
 }
 
-// ★ 解析函数 — 优化版：直接用 indexOf 定位标记切分
 function parseOptimizedResponse(text) {
   const result = { optimized: null, template: null };
-
   const optTag = "【优化版】";
   const tplTag = "【模板版】";
   const optIdx = text.indexOf(optTag);
   const tplIdx = text.indexOf(tplTag);
 
-  // 策略0：直接按标记索引切分（最可靠，优先使用）
   if (optIdx !== -1 && tplIdx !== -1 && tplIdx > optIdx) {
     result.optimized = text.slice(optIdx + optTag.length, tplIdx).trim();
     result.template = text.slice(tplIdx + tplTag.length).trim();
-    // 清理头尾残留的分隔线和空白
     return cleanResult(result);
   }
 
-  // 策略1：按分隔线分割（兜底）
   const sections = text
     .split(/---+|———+|___+|===+|——+/)
     .map((s) => s.trim())
@@ -727,7 +896,6 @@ function parseOptimizedResponse(text) {
     }
   }
 
-  // 策略2：正则提取（最终兜底）
   if (!result.optimized) {
     const m = text.match(/【?优化版】?[\s:：]*([\s\S]*?)(?=(?:---|———|___|===|【?模板版】?))/);
     if (m) result.optimized = m[1].trim();
@@ -737,7 +905,6 @@ function parseOptimizedResponse(text) {
     if (m) result.template = m[1].trim();
   }
 
-  // 策略3：按编号
   if (!result.optimized) {
     const m = text.match(/1\.?\s*【?优化版】?[\s:：]*([\s\S]*?)(?=(?:2\.?\s*【?模板版】?)|$)/);
     if (m) result.optimized = m[1].trim();
@@ -754,8 +921,8 @@ function cleanResult(result) {
   for (const key of ["optimized", "template"]) {
     if (result[key]) {
       result[key] = result[key]
-        .replace(/^[\s\n\-—=]+/, "")
-        .replace(/[\s\n\-—=]+$/, "")
+        .replace(/^[\s\-—=]+/, "")
+        .replace(/[\s\-—=]+$/, "")
         .trim();
     }
   }
@@ -774,11 +941,8 @@ async function saveTextAsPrompt(text) {
         tags: ["AI优化"],
       },
     });
-    if (r?.error === "DUPLICATE") {
-      toast("⚠️ 已保存过");
-    } else if (r && !r.error) {
-      toast("✅ 已保存到Prompt列表");
-    }
+    if (r?.error === "DUPLICATE") toast("⚠️ 已保存过");
+    else if (r && !r.error) toast("✅ 已保存到Prompt列表");
   } catch (err) {
     toast("❌ 保存失败");
   }
@@ -796,18 +960,10 @@ async function saveTextAsTemplate(text) {
         notes: "由AI回复自动提取",
       },
     });
-    if (r && !r.error) {
-      toast("✅ 已保存到模板列表");
-    }
+    if (r && !r.error) toast("✅ 已保存到模板列表");
   } catch (err) {
     toast("❌ 保存失败");
   }
-}
-
-function extractTemplateVariables(text) {
-  const matches = text.match(/\{\{([^}]+)\}\}/g);
-  if (!matches) return [];
-  return [...new Set(matches.map((m) => m.slice(2, -2).trim()))];
 }
 
 function showExtractDialog(parts, onSelect) {
@@ -817,20 +973,20 @@ function showExtractDialog(parts, onSelect) {
   dialog.id = "pf-extract-dialog";
   dialog.style.cssText = `
     position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-    background:#1e1e2e;border:1px solid rgba(255,255,255,0.08);
+    background:#ffffff;border:1px solid #f0f0f2;
     border-radius:12px;padding:20px;z-index:100001;
-    width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.45);
-    font-family:sans-serif;color:#e0e0e0;font-size:13px;
+    width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.12);
+    font-family:sans-serif;color:#1a1a2e;font-size:13px;
   `;
   const hasOpt = !!parts.optimized;
   const hasTmpl = !!parts.template;
   dialog.innerHTML = `
-    <div style="font-weight:600;font-size:14px;margin-bottom:12px;color:#f0f0f0">选择要保存的内容</div>
+    <div style="font-weight:600;font-size:14px;margin-bottom:12px;color:#1a1a2e">选择要保存的内容</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       ${hasOpt ? '<button id="pf-save-opt" style="padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;cursor:pointer;font-weight:600">保存优化版</button>' : ""}
       ${hasTmpl ? '<button id="pf-save-tmpl" style="padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#ec4899,#db2777);color:#fff;cursor:pointer;font-weight:600">保存模板版</button>' : ""}
       <button id="pf-save-all" style="padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#6b7280,#4b5563);color:#fff;cursor:pointer;font-weight:600">保存全部原文</button>
-      <button id="pf-cancel-extract" style="padding:8px;border:none;border-radius:8px;background:transparent;color:#888;cursor:pointer">取消</button>
+      <button id="pf-cancel-extract" style="padding:8px;border:none;border-radius:8px;background:#f0f0f5;color:#6b6b80;cursor:pointer;font-weight:500">取消</button>
     </div>`;
   document.body.appendChild(dialog);
   if (hasOpt)
@@ -887,11 +1043,12 @@ function savePosition() {
   const rect = ball.getBoundingClientRect();
   const ballCenter = rect.left + rect.width / 2;
   const screenCenter = window.innerWidth / 2;
-  const pos = {
-    side: ballCenter < screenCenter ? "left" : "right",
-    topPercent: rect.top / window.innerHeight,
-  };
-  chrome.storage.local.set({ pf_ball_position: pos });
+  chrome.storage.local.set({
+    pf_ball_position: {
+      side: ballCenter < screenCenter ? "left" : "right",
+      topPercent: rect.top / window.innerHeight,
+    },
+  });
 }
 
 function restorePosition() {
@@ -928,5 +1085,243 @@ document.addEventListener("keydown", (e) => {
     }
   }
 });
+
+// ==================================================================
+// 16. 模板填充弹窗 — 浏览器页面中央居中弹窗
+// 优化：浅色主题，统一视觉风格
+// ==================================================================
+
+function injectModalStyles() {
+  if (document.querySelector("#pf-modal-styles")) return;
+
+  const style = document.createElement("style");
+  style.id = "pf-modal-styles";
+  style.textContent = `
+    .pf-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center;
+      z-index: 2147483647;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    }
+    .pf-modal-overlay.pf-modal-show { display: flex; }
+    .pf-modal-dialog {
+      width: 90%; max-width: 680px; max-height: 80vh;
+      background: #ffffff; border-radius: 16px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.25);
+      display: flex; flex-direction: column; overflow: hidden;
+      animation: pf-modal-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes pf-modal-enter {
+      from { opacity: 0; transform: scale(0.92) translateY(12px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .pf-modal-header {
+      padding: 18px 20px 14px; border-bottom: 1px solid #f0f0f2;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0; background: #fafafb;
+    }
+    .pf-modal-header-title { font-weight: 700; font-size: 15px; color: #1a1a2e; letter-spacing: -0.01em; }
+    .pf-modal-header-badge {
+      font-size: 11px; color: #9b9bb0; background: #f0f0f5;
+      padding: 3px 10px; border-radius: 20px; font-weight: 500;
+    }
+    .pf-modal-body { flex: 1; display: flex; flex-direction: row; overflow: hidden; min-height: 0; }
+    .pf-modal-left {
+      flex: 1; display: flex; flex-direction: column;
+      padding: 16px; overflow: hidden; min-width: 0;
+    }
+    .pf-modal-right {
+      flex: 1; display: flex; flex-direction: column;
+      padding: 16px; overflow: hidden; min-width: 0;
+      border-left: 1px solid #f0f0f2; background: #fafafb;
+    }
+    .pf-modal-section-title {
+      font-size: 11px; color: #9b9bb0; margin-bottom: 10px;
+      flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600;
+    }
+    .pf-modal-preview {
+      flex: 1; overflow-y: auto; padding: 12px 14px;
+      background: #ffffff; border: 1px solid #f0f0f2; border-radius: 10px;
+      font-size: 12.5px; line-height: 1.7; color: #1a1a2e;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .pf-modal-preview::-webkit-scrollbar { width: 4px; }
+    .pf-modal-preview::-webkit-scrollbar-thumb { background: #e8e8ee; border-radius: 2px; }
+    .pf-modal-preview .pf-var-placeholder {
+      color: #7c3aed; font-weight: 600; background: rgba(124,58,237,0.08);
+      padding: 1px 5px; border-radius: 4px;
+    }
+    .pf-modal-preview .pf-var-filled {
+      color: #059669; font-weight: 600; background: rgba(5,150,105,0.1);
+      padding: 1px 5px; border-radius: 4px;
+    }
+    .pf-modal-inputs {
+      flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;
+    }
+    .pf-modal-inputs::-webkit-scrollbar { width: 4px; }
+    .pf-modal-inputs::-webkit-scrollbar-thumb { background: #e8e8ee; border-radius: 2px; }
+    .pf-modal-input-group {
+      background: #ffffff; border: 1px solid #f0f0f2; border-radius: 10px;
+      padding: 8px 10px 10px; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .pf-modal-input-group:focus-within { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+    .pf-modal-input-group label {
+      display: block; font-size: 11px; color: #9b9bb0; margin-bottom: 4px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .pf-modal-input-group textarea {
+      width: 100%; padding: 0; border: none; background: transparent;
+      color: #1a1a2e; font-size: 13px; outline: none; resize: none;
+      font-family: inherit; box-sizing: border-box; min-height: 24px; line-height: 1.5;
+    }
+    .pf-modal-input-group textarea::placeholder { color: #b8b8cc; }
+    .pf-modal-footer {
+      padding: 12px 20px 14px; border-top: 1px solid #f0f0f2;
+      display: flex; justify-content: flex-end; gap: 10px;
+      flex-shrink: 0; background: #fafafb;
+    }
+    .pf-modal-footer button {
+      padding: 8px 20px; border-radius: 8px; border: none;
+      cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s;
+    }
+    .pf-modal-footer .pf-btn-cancel { background: #f0f0f5; color: #6b6b80; }
+    .pf-modal-footer .pf-btn-cancel:hover { background: #e5e5ee; color: #4a4a5e; }
+    .pf-modal-footer .pf-btn-cancel:active { transform: scale(0.96); }
+    .pf-modal-footer .pf-btn-confirm {
+      background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff;
+      box-shadow: 0 2px 8px rgba(124,58,237,0.3);
+    }
+    .pf-modal-footer .pf-btn-confirm:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124,58,237,0.4); }
+    .pf-modal-footer .pf-btn-confirm:active { transform: scale(0.96); }
+  `;
+  document.head.appendChild(style);
+}
+
+function injectModalHTML() {
+  if (document.querySelector("#pf-modal-overlay")) return;
+
+  const overlay = document.createElement("div");
+  overlay.className = "pf-modal-overlay";
+  overlay.id = "pf-modal-overlay";
+  overlay.innerHTML = `
+    <div class="pf-modal-dialog">
+      <div class="pf-modal-header">
+        <span class="pf-modal-header-title">使用模板</span>
+        <span class="pf-modal-header-badge" id="pf-modal-count">0 个变量</span>
+      </div>
+      <div class="pf-modal-body">
+        <div class="pf-modal-left">
+          <div class="pf-modal-section-title">预览</div>
+          <div class="pf-modal-preview" id="pf-modal-preview"></div>
+        </div>
+        <div class="pf-modal-right">
+          <div class="pf-modal-section-title">变量填写</div>
+          <div class="pf-modal-inputs" id="pf-modal-inputs"></div>
+        </div>
+      </div>
+      <div class="pf-modal-footer">
+        <button class="pf-btn-cancel" id="pf-modal-cancel">取消</button>
+        <button class="pf-btn-confirm" id="pf-modal-confirm">填入模板</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function showVariableDialog(title, variables, templateText, onSubmit, onCancel) {
+  injectModalStyles();
+  injectModalHTML();
+
+  const overlay = document.getElementById("pf-modal-overlay");
+  const titleEl = overlay.querySelector(".pf-modal-header-title");
+  const countEl = document.getElementById("pf-modal-count");
+  const inputsEl = document.getElementById("pf-modal-inputs");
+  const previewEl = document.getElementById("pf-modal-preview");
+  const cancelBtn = document.getElementById("pf-modal-cancel");
+  const confirmBtn = document.getElementById("pf-modal-confirm");
+
+  titleEl.textContent = title || "使用模板";
+  countEl.textContent = `${variables.length} 个变量`;
+
+  inputsEl.innerHTML = variables
+    .map((v) => {
+      return `<div class="pf-modal-input-group">
+        <label>{{${escapeHtml(v)}}}</label>
+        <textarea data-var="${escapeHtml(v)}" placeholder="输入 ${escapeHtml(v)}..." rows="1"></textarea>
+      </div>`;
+    })
+    .join("");
+
+  function updatePreview() {
+    const values = {};
+    inputsEl.querySelectorAll("textarea").forEach((ta) => {
+      values[ta.dataset.var] = ta.value;
+    });
+    const previewHtml = templateText.replace(/\{\{([^}]+)\}\}/g, (match, varName) => {
+      const trimmed = varName.trim();
+      const val = values[trimmed];
+      if (val && val.trim()) {
+        return `<span class="pf-var-filled">${escapeHtml(val)}</span>`;
+      } else {
+        return `<span class="pf-var-placeholder">{{${escapeHtml(trimmed)}}}</span>`;
+      }
+    });
+    previewEl.innerHTML = previewHtml;
+    inputsEl.querySelectorAll("textarea").forEach((ta) => {
+      ta.style.height = "auto";
+      ta.style.height = Math.min(ta.scrollHeight, 150) + "px";
+    });
+  }
+
+  updatePreview();
+  inputsEl.querySelectorAll("textarea").forEach((ta) => {
+    ta.addEventListener("input", updatePreview);
+  });
+
+  const firstInput = inputsEl.querySelector("textarea");
+  if (firstInput) {
+    setTimeout(() => firstInput.focus(), 150);
+  }
+
+  overlay.classList.add("pf-modal-show");
+
+  const newCancelBtn = cancelBtn.cloneNode(true);
+  const newConfirmBtn = confirmBtn.cloneNode(true);
+  cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+  confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+  newCancelBtn.addEventListener("click", () => {
+    overlay.classList.remove("pf-modal-show");
+    if (onCancel) onCancel();
+  });
+
+  newConfirmBtn.addEventListener("click", () => {
+    const values = {};
+    inputsEl.querySelectorAll("textarea").forEach((ta) => {
+      values[ta.dataset.var] = ta.value.trim() || `{{${ta.dataset.var}}}`;
+    });
+    overlay.classList.remove("pf-modal-show");
+    onSubmit(values);
+  });
+
+  const keyHandler = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      newConfirmBtn.click();
+    }
+  };
+  inputsEl.addEventListener("keydown", keyHandler);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      overlay.classList.remove("pf-modal-show");
+      if (onCancel) onCancel();
+    }
+  });
+}
 
 restorePosition();
