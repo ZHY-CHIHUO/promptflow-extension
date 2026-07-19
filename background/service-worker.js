@@ -112,6 +112,72 @@ async function searchPrompts(keyword) {
   return all.filter((p) => p.promptText.toLowerCase().includes(kw));
 }
 
+// ---------- Templates CRUD ----------
+async function addTemplate(template) {
+  const db = await openDB();
+  const text = (template.templateText || "").trim();
+  if (!text) return { error: "EMPTY", message: "模板内容不能为空" };
+
+  const t = {
+    ...template,
+    id: template.id || crypto.randomUUID(),
+    templateText: text,
+    title: template.title || "",
+    variables: template.variables || [],
+    notes: template.notes || "",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("templates", "readwrite");
+    tx.objectStore("templates").add(t);
+    tx.oncomplete = () => resolve(t);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function getAllTemplates() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("templates", "readonly");
+    const request = tx.objectStore("templates").getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function getTemplateById(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction("templates", "readonly").objectStore("templates").get(id);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function updateTemplate(id, updates) {
+  const db = await openDB();
+  const old = await getTemplateById(id);
+  if (!old) throw new Error("Template not found");
+  const updated = { ...old, ...updates, updatedAt: Date.now() };
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("templates", "readwrite");
+    tx.objectStore("templates").put(updated);
+    tx.oncomplete = () => resolve(updated);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function deleteTemplate(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("templates", "readwrite");
+    tx.objectStore("templates").delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 // ============ 消息路由 ============
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   handleMessage(request)
@@ -130,12 +196,24 @@ async function handleMessage(request) {
     case "db:getPromptById":
       return await getPromptById(request.payload);
     case "db:updatePrompt":
-      return await updatePrompt(request.payload.id, request.payload.updates);
+      return await updateTemplate(request.payload.id, request.payload.updates);
     case "db:deletePrompt":
       await deletePrompt(request.payload);
       return { success: true };
     case "db:searchPrompts":
       return await searchPrompts(request.payload);
+    // ===== Templates =====
+    case "db:addTemplate":
+      return await addTemplate(request.payload);
+    case "db:getAllTemplates":
+      return await getAllTemplates();
+    case "db:getTemplateById":
+      return await getTemplateById(request.payload);
+    case "db:updateTemplate":
+      return await updateTemplate(request.payload.id, request.payload.updates);
+    case "db:deleteTemplate":
+      await deleteTemplate(request.payload);
+      return { success: true };
     default:
       throw new Error(`Unknown action: ${request.action}`);
   }
