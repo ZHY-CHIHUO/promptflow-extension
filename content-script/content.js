@@ -2,6 +2,25 @@
 // PromptFlow 悬浮球 — 单击打开操作面板 / 查看Prompt回填
 // =============================================
 
+// ========== 设置（从 chrome.storage 读取并实时监听） ==========
+const SETTINGS_KEY = "pf_settings";
+const DEFAULT_SETTINGS = {
+  ballEnabled: true,
+  blacklist: "",
+};
+let pfSettings = { ...DEFAULT_SETTINGS };
+
+// 判断当前网站是否在黑名单中
+function isCurrentSiteBlacklisted() {
+  if (!pfSettings.blacklist) return false;
+  const host = location.hostname;
+  return pfSettings.blacklist
+    .split(/[\n,]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .some((entry) => host === entry || host.endsWith("." + entry));
+}
+
 // ========== 智能输入框探测 ==========
 function detectInputElement() {
   const editables = document.querySelectorAll(
@@ -179,7 +198,7 @@ function snapBall() {
   }
 }
 
-// ========== 4. 操作面板 — 浅色主题 + 层次分隔 ==========
+// ========== 4. 操作面板 ==========
 function buildPanel() {
   const panel = document.createElement("div");
   panel.id = "promptflow-panel";
@@ -229,126 +248,18 @@ function buildPanel() {
     document.head.appendChild(style);
   }
 
+  // 修改：管理按钮移到最后
   panel.innerHTML = `
     <div class="pf-title">PromptFlow</div>
     <div class="pf-actions">
       <button class="pf-btn pf-btn-save" id="pf-btn-save"><span class="icon">💾</span><span>保存</span></button>
       <button class="pf-btn pf-btn-optimize" id="pf-btn-optimize"><span class="icon">✨</span><span>优化</span></button>
       <button class="pf-btn pf-btn-view" id="pf-btn-view"><span class="icon">📋</span><span>查看</span></button>
-      <button class="pf-btn pf-btn-manage" id="pf-btn-manage"><span class="icon">⚙️</span><span>管理</span></button>
       <button class="pf-btn pf-btn-extract" id="pf-btn-extract"><span class="icon">📥</span><span>提取回复</span></button>
+      <button class="pf-btn pf-btn-manage" id="pf-btn-manage"><span class="icon">⚙️</span><span>管理</span></button>
     </div>
   `;
   return panel;
-}
-
-// ========== 统一列表面板 — 浅色主题 + 层次分隔 ==========
-function buildListPanel() {
-  const listPanel = document.createElement("div");
-  listPanel.id = "promptflow-list-panel";
-
-  if (!document.querySelector("#promptflow-list-panel-style")) {
-    const style = document.createElement("style");
-    style.id = "promptflow-list-panel-style";
-    style.textContent = `
-      #promptflow-list-panel {
-        position: fixed; width: 280px; max-height: 420px;
-        background: #ffffff;
-        border: 1px solid #e8ecf1;
-        border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06);
-        z-index: 99999; display: none; flex-direction: column;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 13px; color: #1e1e2e; overflow: hidden;
-        opacity: 0; transform: translateY(6px) scale(0.97);
-        transition: opacity 0.18s, transform 0.18s;
-      }
-      #promptflow-list-panel.pf-visible { opacity: 1; transform: translateY(0) scale(1); }
-      #promptflow-list-panel .pf-list-header {
-        padding: 14px 16px;
-        background: #f8f9fc;
-        border-bottom: 1px solid #e8ecf1;
-        display: flex; align-items: center; justify-content: space-between;
-        cursor: move; user-select: none;
-      }
-      #promptflow-list-panel .pf-list-header:hover { background: #f0f2f6; }
-      #promptflow-list-panel .pf-list-title { font-weight: 800; font-size: 14px; color: #1e1e2e; }
-      #promptflow-list-panel .pf-list-close {
-        background: transparent; border: none; color: #8e8ea8; cursor: pointer;
-        font-size: 16px; padding: 2px 6px; border-radius: 6px;
-      }
-      #promptflow-list-panel .pf-list-close:hover { background: #f0f2f6; color: #5a5a72; }
-      #promptflow-list-panel .pf-list-tabs {
-        display: flex;
-        background: #f8f9fc;
-        border-bottom: 1px solid #e8ecf1;
-      }
-      #promptflow-list-panel .pf-list-tab {
-        flex: 1; padding: 8px 0; text-align: center; cursor: pointer;
-        color: #8e8ea8; font-size: 12px; transition: all .15s;
-        border-bottom: 2px solid transparent;
-      }
-      #promptflow-list-panel .pf-list-tab:hover { color: #5a5a72; }
-      #promptflow-list-panel .pf-list-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; }
-      #promptflow-list-panel .pf-list-tab.tmpl-active { color: #14b8a6; border-bottom-color: #14b8a6; font-weight: 600; }
-      #promptflow-list-panel .pf-list-search { padding: 10px 16px; background: #ffffff; border-bottom: 1px solid #f0f2f6; }
-      #promptflow-list-panel .pf-list-search input {
-        width: 100%; padding: 8px 12px; border: 1px solid #e8ecf1;
-        border-radius: 8px; background: #f8f9fc; color: #1e1e2e;
-        font-size: 13px; outline: none; box-sizing: border-box;
-        transition: border-color 0.15s, box-shadow 0.15s;
-      }
-      #promptflow-list-panel .pf-list-search input:focus { border-color: #6d4aff; box-shadow: 0 0 0 3px rgba(109,74,255,0.1); background: #ffffff; }
-      #promptflow-list-panel .pf-list-search input::placeholder { color: #b0b0c4; }
-      #promptflow-list-panel .pf-list-body {
-        flex: 1; overflow-y: auto; max-height: 300px; padding: 8px 10px;
-        background: #ffffff;
-      }
-      #promptflow-list-panel .pf-list-body::-webkit-scrollbar { width: 4px; }
-      #promptflow-list-panel .pf-list-body::-webkit-scrollbar-thumb { background: #e8ecf1; border-radius: 2px; }
-      #promptflow-list-panel .pf-empty { text-align: center; padding: 30px 20px; color: #8e8ea8; font-size: 13px; }
-      #promptflow-list-panel .pf-prompt-item {
-        padding: 10px 12px; border-radius: 10px; cursor: pointer;
-        transition: background 0.1s, box-shadow 0.1s, transform 0.1s;
-        margin-bottom: 6px;
-        border-left: 3px solid transparent;
-      }
-      #promptflow-list-panel .pf-prompt-item:hover { background: #f8f9fc; box-shadow: 0 1px 2px rgba(0,0,0,0.04); transform: translateY(-1px); border-left-color: #6d4aff; }
-      #promptflow-list-panel .pf-prompt-title {
-        font-weight: 600; font-size: 13px; color: #1e1e2e;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;
-      }
-      #promptflow-list-panel .pf-prompt-preview {
-        font-size: 12px; color: #8e8ea8;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      }
-      #promptflow-list-panel .pf-tmpl-item-vars { font-size: 11px; color: #14b8a6; margin-top: 2px; }
-      #promptflow-list-panel .pf-list-footer {
-        padding: 10px 16px; border-top: 1px solid #f0f2f6;
-        background: #f8f9fc;
-        display: flex; justify-content: space-between; align-items: center;
-        color: #8e8ea8; font-size: 11px;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  listPanel.innerHTML = `
-    <div class="pf-list-header" id="pf-list-header">
-      <span class="pf-list-title">选择</span>
-      <button class="pf-list-close" id="pf-list-close">✕</button>
-    </div>
-    <div class="pf-list-tabs">
-      <div class="pf-list-tab active" data-tab="prompts">📋 Prompt</div>
-      <div class="pf-list-tab" data-tab="templates">📝 模板</div>
-    </div>
-    <div class="pf-list-search">
-      <input type="text" id="pf-list-search-input" placeholder="搜索..." />
-    </div>
-    <div class="pf-list-body" id="pf-list-body"><div class="pf-empty">加载中...</div></div>
-    <div class="pf-list-footer"><span id="pf-list-count">0 条</span></div>
-  `;
-  return listPanel;
 }
 
 const oldPanel = document.querySelector("#promptflow-panel");
@@ -422,10 +333,7 @@ document.addEventListener("click", (e) => {
 });
 panel.addEventListener("click", (e) => e.stopPropagation());
 
-// ==================================================================
-// 统一列表面板（Prompt + 模板 Tab 切换）
-// 优化：浅色主题，列表项 hover 上浮效果，统一圆角/阴影
-// ==================================================================
+// ========== 7. 统一列表面板 ==========
 function buildListPanel() {
   const listPanel = document.createElement("div");
   listPanel.id = "promptflow-list-panel";
@@ -437,71 +345,70 @@ function buildListPanel() {
       #promptflow-list-panel {
         position: fixed; width: 280px; max-height: 420px;
         background: #ffffff;
-        border: 1px solid #f0f0f2;
+        border: 1px solid #e8ecf1;
         border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06);
         z-index: 99999; display: none; flex-direction: column;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 13px; color: #1a1a2e; overflow: hidden;
+        font-size: 13px; color: #1e1e2e; overflow: hidden;
         opacity: 0; transform: translateY(6px) scale(0.97);
         transition: opacity 0.18s, transform 0.18s;
       }
       #promptflow-list-panel.pf-visible { opacity: 1; transform: translateY(0) scale(1); }
       #promptflow-list-panel .pf-list-header {
-        padding: 12px 14px; border-bottom: 1px solid #f0f0f2;
+        padding: 14px 16px; background: #f8f9fc;
+        border-bottom: 1px solid #e8ecf1;
         display: flex; align-items: center; justify-content: space-between;
         cursor: move; user-select: none;
       }
-      #promptflow-list-panel .pf-list-header:hover { background: #fafafb; }
-      #promptflow-list-panel .pf-list-title { font-weight: 700; font-size: 14px; color: #1a1a2e; }
+      #promptflow-list-panel .pf-list-header:hover { background: #f0f2f6; }
+      #promptflow-list-panel .pf-list-title { font-weight: 800; font-size: 14px; color: #1e1e2e; }
       #promptflow-list-panel .pf-list-close {
-        background: transparent; border: none; color: #9b9bb0; cursor: pointer;
+        background: transparent; border: none; color: #8e8ea8; cursor: pointer;
         font-size: 16px; padding: 2px 6px; border-radius: 6px;
       }
-      #promptflow-list-panel .pf-list-close:hover { background: #f0f0f5; color: #6b6b80; }
-      #promptflow-list-panel .pf-list-tabs { display: flex; border-bottom: 1px solid #f0f0f2; }
+      #promptflow-list-panel .pf-list-close:hover { background: #f0f2f6; color: #5a5a72; }
+      #promptflow-list-panel .pf-list-tabs { display: flex; background: #f8f9fc; border-bottom: 1px solid #e8ecf1; }
       #promptflow-list-panel .pf-list-tab {
         flex: 1; padding: 8px 0; text-align: center; cursor: pointer;
-        color: #9b9bb0; font-size: 12px; transition: all .15s;
+        color: #8e8ea8; font-size: 12px; transition: all .15s;
         border-bottom: 2px solid transparent;
       }
-      #promptflow-list-panel .pf-list-tab:hover { color: #6b6b80; }
+      #promptflow-list-panel .pf-list-tab:hover { color: #5a5a72; }
       #promptflow-list-panel .pf-list-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; }
       #promptflow-list-panel .pf-list-tab.tmpl-active { color: #14b8a6; border-bottom-color: #14b8a6; font-weight: 600; }
-      #promptflow-list-panel .pf-list-search { padding: 10px 14px; border-bottom: 1px solid #f0f0f2; }
+      #promptflow-list-panel .pf-list-search { padding: 10px 16px; background: #ffffff; border-bottom: 1px solid #f0f2f6; }
       #promptflow-list-panel .pf-list-search input {
-        width: 100%; padding: 8px 10px; border: 1px solid #e8e8ee;
-        border-radius: 8px; background: #fafafb; color: #1a1a2e;
+        width: 100%; padding: 8px 12px; border: 1px solid #e8ecf1;
+        border-radius: 8px; background: #f8f9fc; color: #1e1e2e;
         font-size: 13px; outline: none; box-sizing: border-box;
         transition: border-color 0.15s, box-shadow 0.15s;
       }
-      #promptflow-list-panel .pf-list-search input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
-      #promptflow-list-panel .pf-list-search input::placeholder { color: #b8b8cc; }
-      #promptflow-list-panel .pf-list-body {
-        flex: 1; overflow-y: auto; max-height: 300px; padding: 6px 8px;
-      }
+      #promptflow-list-panel .pf-list-search input:focus { border-color: #6d4aff; box-shadow: 0 0 0 3px rgba(109,74,255,0.1); background: #ffffff; }
+      #promptflow-list-panel .pf-list-search input::placeholder { color: #b0b0c4; }
+      #promptflow-list-panel .pf-list-body { flex: 1; overflow-y: auto; max-height: 300px; padding: 8px 10px; background: #ffffff; }
       #promptflow-list-panel .pf-list-body::-webkit-scrollbar { width: 4px; }
-      #promptflow-list-panel .pf-list-body::-webkit-scrollbar-thumb { background: #e8e8ee; border-radius: 2px; }
-      #promptflow-list-panel .pf-empty { text-align: center; padding: 30px 20px; color: #9b9bb0; font-size: 13px; }
+      #promptflow-list-panel .pf-list-body::-webkit-scrollbar-thumb { background: #e8ecf1; border-radius: 2px; }
+      #promptflow-list-panel .pf-empty { text-align: center; padding: 30px 20px; color: #8e8ea8; font-size: 13px; }
       #promptflow-list-panel .pf-prompt-item {
         padding: 10px 12px; border-radius: 10px; cursor: pointer;
         transition: background 0.1s, box-shadow 0.1s, transform 0.1s;
-        margin-bottom: 4px;
+        margin-bottom: 6px; border-left: 3px solid transparent;
       }
-      #promptflow-list-panel .pf-prompt-item:hover { background: #f0f0f5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); transform: translateY(-1px); }
+      #promptflow-list-panel .pf-prompt-item:hover { background: #f8f9fc; box-shadow: 0 1px 2px rgba(0,0,0,0.04); transform: translateY(-1px); border-left-color: #6d4aff; }
       #promptflow-list-panel .pf-prompt-title {
-        font-weight: 600; font-size: 13px; color: #1a1a2e;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px;
+        font-weight: 600; font-size: 13px; color: #1e1e2e;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;
       }
       #promptflow-list-panel .pf-prompt-preview {
-        font-size: 12px; color: #6b6b80;
+        font-size: 12px; color: #8e8ea8;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
       #promptflow-list-panel .pf-tmpl-item-vars { font-size: 11px; color: #14b8a6; margin-top: 2px; }
       #promptflow-list-panel .pf-list-footer {
-        padding: 10px 14px; border-top: 1px solid #f0f0f2;
+        padding: 10px 16px; border-top: 1px solid #f0f2f6; background: #f8f9fc;
         display: flex; justify-content: space-between; align-items: center;
-        color: #9b9bb0; font-size: 11px;
+        color: #8e8ea8; font-size: 11px;
       }
     `;
     document.head.appendChild(style);
@@ -618,7 +525,6 @@ document.addEventListener("click", (e) => {
 });
 listPanel.addEventListener("click", (e) => e.stopPropagation());
 
-// Tab 切换事件
 listTabs.forEach((tab) => {
   tab.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -847,12 +753,18 @@ btnView.addEventListener("click", (e) => {
   e.stopPropagation();
   showListPanel("prompts");
 });
-btnManage.addEventListener("click", (e) => {
+// 修改：管理按钮点击直接弹出扩展操作面板（Chrome 127+ 支持）
+btnManage.addEventListener("click", async (e) => {
   e.stopPropagation();
+  hidePanel();
   try {
-    chrome.runtime.sendMessage({ action: "openPopup" });
-  } catch (_) {}
-  toast("📋 请点击浏览器工具栏的扩展图标打开管理面板");
+    const res = await chrome.runtime.sendMessage({ action: "openPopup" });
+    if (res?.error) {
+      toast("📋 请点击浏览器工具栏的扩展图标打开管理面板");
+    }
+  } catch (_) {
+    toast("📋 请点击浏览器工具栏的扩展图标打开管理面板");
+  }
 });
 btnExtract.addEventListener("click", (e) => {
   e.stopPropagation();
@@ -933,7 +845,6 @@ function optimizePrompt() {
 // ============================================================
 // 提取AI回复并保存
 // ============================================================
-
 function findLastAIResponse() {
   const selectors = [
     '[class*="message"]:not([class*="user"]):not([class*="you"])',
@@ -1083,20 +994,20 @@ function showExtractDialog(parts, onSelect) {
   dialog.id = "pf-extract-dialog";
   dialog.style.cssText = `
     position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-    background:#ffffff;border:1px solid #f0f0f2;
+    background:#ffffff;border:1px solid #e8ecf1;
     border-radius:12px;padding:20px;z-index:100001;
     width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.12);
-    font-family:sans-serif;color:#1a1a2e;font-size:13px;
+    font-family:sans-serif;color:#1e1e2e;font-size:13px;
   `;
   const hasOpt = !!parts.optimized;
   const hasTmpl = !!parts.template;
   dialog.innerHTML = `
-    <div style="font-weight:600;font-size:14px;margin-bottom:12px;color:#1a1a2e">选择要保存的内容</div>
+    <div style="font-weight:600;font-size:14px;margin-bottom:12px;color:#1e1e2e">选择要保存的内容</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       ${hasOpt ? '<button id="pf-save-opt" style="padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;cursor:pointer;font-weight:600">保存优化版</button>' : ""}
       ${hasTmpl ? '<button id="pf-save-tmpl" style="padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#ec4899,#db2777);color:#fff;cursor:pointer;font-weight:600">保存模板版</button>' : ""}
       <button id="pf-save-all" style="padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#6b7280,#4b5563);color:#fff;cursor:pointer;font-weight:600">保存全部原文</button>
-      <button id="pf-cancel-extract" style="padding:8px;border:none;border-radius:8px;background:#f0f0f5;color:#6b6b80;cursor:pointer;font-weight:500">取消</button>
+      <button id="pf-cancel-extract" style="padding:8px;border:none;border-radius:8px;background:#f0f2f6;color:#5a5a72;cursor:pointer;font-weight:500">取消</button>
     </div>`;
   document.body.appendChild(dialog);
   if (hasOpt)
@@ -1183,6 +1094,7 @@ function restorePosition() {
 
 // ========== 15. 键盘快捷键 ==========
 document.addEventListener("keydown", (e) => {
+  if (!pfSettings.shortcutEnabled) return;
   if (e.ctrlKey && e.shiftKey && e.key === "P") {
     e.preventDefault();
     togglePanel();
@@ -1197,10 +1109,8 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ==================================================================
-// 16. 模板填充弹窗 — 浏览器页面中央居中弹窗
-// 优化：浅色主题，统一视觉风格
+// 16. 模板填充弹窗
 // ==================================================================
-
 function injectModalStyles() {
   if (document.querySelector("#pf-modal-styles")) return;
 
@@ -1233,79 +1143,40 @@ function injectModalStyles() {
       display: flex; align-items: center; justify-content: space-between;
       flex-shrink: 0; background: #fafafb;
     }
-    .pf-modal-header-title { font-weight: 700; font-size: 15px; color: #1a1a2e; letter-spacing: -0.01em; }
+    .pf-modal-header-title { font-weight: 700; font-size: 15px; color: #1e1e2e; letter-spacing: -0.01em; }
     .pf-modal-header-badge {
-      font-size: 11px; color: #9b9bb0; background: #f0f0f5;
+      font-size: 11px; color: #8e8ea8; background: #f0f2f6;
       padding: 3px 10px; border-radius: 20px; font-weight: 500;
     }
     .pf-modal-body { flex: 1; display: flex; flex-direction: row; overflow: hidden; min-height: 0; }
-    .pf-modal-left {
-      flex: 1; display: flex; flex-direction: column;
-      padding: 16px; overflow: hidden; min-width: 0;
-    }
-    .pf-modal-right {
-      flex: 1; display: flex; flex-direction: column;
-      padding: 16px; overflow: hidden; min-width: 0;
-      border-left: 1px solid #f0f0f2; background: #fafafb;
-    }
-    .pf-modal-section-title {
-      font-size: 11px; color: #9b9bb0; margin-bottom: 10px;
-      flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600;
-    }
+    .pf-modal-left { flex: 1; display: flex; flex-direction: column; padding: 16px; overflow: hidden; min-width: 0; }
+    .pf-modal-right { flex: 1; display: flex; flex-direction: column; padding: 16px; overflow: hidden; min-width: 0; border-left: 1px solid #f0f0f2; background: #fafafb; }
+    .pf-modal-section-title { font-size: 11px; color: #8e8ea8; margin-bottom: 10px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
     .pf-modal-preview {
       flex: 1; overflow-y: auto; padding: 12px 14px;
       background: #ffffff; border: 1px solid #f0f0f2; border-radius: 10px;
-      font-size: 12.5px; line-height: 1.7; color: #1a1a2e;
+      font-size: 12.5px; line-height: 1.7; color: #1e1e2e;
       white-space: pre-wrap; word-break: break-word;
     }
     .pf-modal-preview::-webkit-scrollbar { width: 4px; }
-    .pf-modal-preview::-webkit-scrollbar-thumb { background: #e8e8ee; border-radius: 2px; }
-    .pf-modal-preview .pf-var-placeholder {
-      color: #7c3aed; font-weight: 600; background: rgba(124,58,237,0.08);
-      padding: 1px 5px; border-radius: 4px;
-    }
-    .pf-modal-preview .pf-var-filled {
-      color: #059669; font-weight: 600; background: rgba(5,150,105,0.1);
-      padding: 1px 5px; border-radius: 4px;
-    }
-    .pf-modal-inputs {
-      flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;
-    }
+    .pf-modal-preview::-webkit-scrollbar-thumb { background: #e8ecf1; border-radius: 2px; }
+    .pf-modal-preview .pf-var-placeholder { color: #6d4aff; font-weight: 600; background: rgba(109,74,255,0.08); padding: 1px 5px; border-radius: 4px; }
+    .pf-modal-preview .pf-var-filled { color: #059669; font-weight: 600; background: rgba(5,150,105,0.1); padding: 1px 5px; border-radius: 4px; }
+    .pf-modal-inputs { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
     .pf-modal-inputs::-webkit-scrollbar { width: 4px; }
-    .pf-modal-inputs::-webkit-scrollbar-thumb { background: #e8e8ee; border-radius: 2px; }
-    .pf-modal-input-group {
-      background: #ffffff; border: 1px solid #f0f0f2; border-radius: 10px;
-      padding: 8px 10px 10px; transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .pf-modal-input-group:focus-within { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
-    .pf-modal-input-group label {
-      display: block; font-size: 11px; color: #9b9bb0; margin-bottom: 4px;
-      font-family: "SF Mono", "Fira Code", monospace;
-      font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px;
-    }
-    .pf-modal-input-group textarea {
-      width: 100%; padding: 0; border: none; background: transparent;
-      color: #1a1a2e; font-size: 13px; outline: none; resize: none;
-      font-family: inherit; box-sizing: border-box; min-height: 24px; line-height: 1.5;
-    }
-    .pf-modal-input-group textarea::placeholder { color: #b8b8cc; }
-    .pf-modal-footer {
-      padding: 12px 20px 14px; border-top: 1px solid #f0f0f2;
-      display: flex; justify-content: flex-end; gap: 10px;
-      flex-shrink: 0; background: #fafafb;
-    }
-    .pf-modal-footer button {
-      padding: 8px 20px; border-radius: 8px; border: none;
-      cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s;
-    }
-    .pf-modal-footer .pf-btn-cancel { background: #f0f0f5; color: #6b6b80; }
-    .pf-modal-footer .pf-btn-cancel:hover { background: #e5e5ee; color: #4a4a5e; }
+    .pf-modal-inputs::-webkit-scrollbar-thumb { background: #e8ecf1; border-radius: 2px; }
+    .pf-modal-input-group { background: #ffffff; border: 1px solid #f0f0f2; border-radius: 10px; padding: 8px 10px 10px; transition: border-color 0.15s, box-shadow 0.15s; }
+    .pf-modal-input-group:focus-within { border-color: #6d4aff; box-shadow: 0 0 0 3px rgba(109,74,255,0.1); }
+    .pf-modal-input-group label { display: block; font-size: 11px; color: #8e8ea8; margin-bottom: 4px; font-family: "SF Mono", "Fira Code", monospace; font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; }
+    .pf-modal-input-group textarea { width: 100%; padding: 0; border: none; background: transparent; color: #1e1e2e; font-size: 13px; outline: none; resize: none; font-family: inherit; box-sizing: border-box; min-height: 24px; line-height: 1.5; }
+    .pf-modal-input-group textarea::placeholder { color: #b0b0c4; }
+    .pf-modal-footer { padding: 12px 20px 14px; border-top: 1px solid #f0f0f2; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; background: #fafafb; }
+    .pf-modal-footer button { padding: 8px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; }
+    .pf-modal-footer .pf-btn-cancel { background: #f0f2f6; color: #5a5a72; }
+    .pf-modal-footer .pf-btn-cancel:hover { background: #e5e8ef; color: #1e1e2e; }
     .pf-modal-footer .pf-btn-cancel:active { transform: scale(0.96); }
-    .pf-modal-footer .pf-btn-confirm {
-      background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff;
-      box-shadow: 0 2px 8px rgba(124,58,237,0.3);
-    }
-    .pf-modal-footer .pf-btn-confirm:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124,58,237,0.4); }
+    .pf-modal-footer .pf-btn-confirm { background: linear-gradient(135deg, #6d4aff, #5a3dcc); color: #fff; box-shadow: 0 2px 8px rgba(109,74,255,0.3); }
+    .pf-modal-footer .pf-btn-confirm:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(109,74,255,0.4); }
     .pf-modal-footer .pf-btn-confirm:active { transform: scale(0.96); }
   `;
   document.head.appendChild(style);
@@ -1434,4 +1305,29 @@ function showVariableDialog(title, variables, templateText, onSubmit, onCancel) 
   });
 }
 
-restorePosition();
+// ==================================================================
+// 17. 设置应用与监听
+// ==================================================================
+function applyBallVisibility() {
+  const hidden = !pfSettings.ballEnabled || isCurrentSiteBlacklisted();
+  ball.style.display = hidden ? "none" : "flex";
+  if (hidden) {
+    hidePanel();
+    hideListPanel();
+  }
+}
+
+// 启动时读取设置
+chrome.storage.local.get(SETTINGS_KEY, (data) => {
+  pfSettings = { ...DEFAULT_SETTINGS, ...(data[SETTINGS_KEY] || {}) };
+  applyBallVisibility();
+  restorePosition();
+});
+
+// 设置变化时实时生效
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes[SETTINGS_KEY]) {
+    pfSettings = { ...DEFAULT_SETTINGS, ...(changes[SETTINGS_KEY].newValue || {}) };
+    applyBallVisibility();
+  }
+});

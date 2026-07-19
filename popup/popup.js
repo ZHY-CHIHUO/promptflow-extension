@@ -1,5 +1,5 @@
 // =============================================
-// PromptFlow Popup — 列表 + 多选删除 + 模板
+// PromptFlow Popup — 列表 + 多选删除 + 模板 + 设置
 // =============================================
 
 let allPrompts = [];
@@ -7,6 +7,16 @@ let currentKeyword = "";
 let selectMode = false;
 let selectedIds = new Set();
 let editingId = null;
+
+// ============ 设置默认值（新增） ============
+const SETTINGS_KEY = "pf_settings";
+const DEFAULT_SETTINGS = {
+  ballEnabled: true,
+  ballDefaultSide: "right",
+  shortcutEnabled: true,
+  blacklist: "",
+};
+let pfSettings = { ...DEFAULT_SETTINGS };
 
 // ============ Tab 切换 ============
 document.querySelectorAll(".tab-item").forEach((item) => {
@@ -238,31 +248,22 @@ async function fillToPage(p) {
 // ============ Prompt 编辑面板 ============
 document.getElementById("epBack").addEventListener("click", closeEditPanel);
 document.getElementById("epSave").addEventListener("click", async () => {
-  if (!editingId) {
-    const title = document.getElementById("epTitle").value.trim();
-    const promptText = document.getElementById("epText").value.trim();
-    const notes = document.getElementById("epNotes").value.trim();
-    if (!promptText) {
-      toast("内容不能为空");
-      return;
-    }
-    const result = await chrome.runtime.sendMessage({
-      action: "db:addPrompt",
-      payload: { promptText, title, notes, source: "popup", platform: "manual" },
-    });
-    if (result && !result.error) {
-      allPrompts.unshift(result);
-    }
-    closeEditPanel();
-    renderList();
-    toast("已保存");
-    return;
-  }
   const title = document.getElementById("epTitle").value.trim();
   const promptText = document.getElementById("epText").value.trim();
   const notes = document.getElementById("epNotes").value.trim();
   if (!promptText) {
     toast("内容不能为空");
+    return;
+  }
+  if (!editingId) {
+    const result = await chrome.runtime.sendMessage({
+      action: "db:addPrompt",
+      payload: { promptText, title, notes, source: "popup", platform: "manual" },
+    });
+    if (result && !result.error) allPrompts.unshift(result);
+    closeEditPanel();
+    renderList();
+    toast("已保存");
     return;
   }
   await chrome.runtime.sendMessage({
@@ -326,7 +327,6 @@ function closeEditPanel() {
 let allTemplates = [];
 let templateKeyword = "";
 let editingTemplateId = null;
-
 let tmplSelectMode = false;
 let tmplSelectedIds = new Set();
 
@@ -641,6 +641,131 @@ document.getElementById("tmplEpDelete").addEventListener("click", () => {
   });
 });
 
+// ============================================================
+// 设置页（新增）
+// ============================================================
+
+// 加载设置到 UI
+async function loadSettings() {
+  try {
+    const data = await chrome.storage.local.get(SETTINGS_KEY);
+    pfSettings = { ...DEFAULT_SETTINGS, ...(data[SETTINGS_KEY] || {}) };
+  } catch (err) {
+    pfSettings = { ...DEFAULT_SETTINGS };
+  }
+  applySettingsToUI();
+}
+
+function applySettingsToUI() {
+  document.getElementById("setBallEnabled").checked = pfSettings.ballEnabled;
+  document.getElementById("setBallSide").value = pfSettings.ballDefaultSide;
+  document.getElementById("setShortcutEnabled").checked = pfSettings.shortcutEnabled;
+  document.getElementById("setBlacklist").value = pfSettings.blacklist;
+}
+
+// 保存设置（合并写入，content.js 通过 onChanged 实时生效）
+function saveSettings(patch) {
+  pfSettings = { ...pfSettings, ...patch };
+  chrome.storage.local.set({ [SETTINGS_KEY]: pfSettings });
+}
+
+document.getElementById("setBallEnabled").addEventListener("change", (e) => {
+  saveSettings({ ballEnabled: e.target.checked });
+  toast(e.target.checked ? "悬浮球已启用" : "悬浮球已禁用");
+});
+
+document.getElementById("setBallSide").addEventListener("change", (e) => {
+  saveSettings({ ballDefaultSide: e.target.value });
+  toast("已保存");
+});
+
+document.getElementById("setShortcutEnabled").addEventListener("change", (e) => {
+  saveSettings({ shortcutEnabled: e.target.checked });
+  toast(e.target.checked ? "快捷键已启用" : "快捷键已禁用");
+});
+
+// 黑名单防抖保存
+let blacklistTimer;
+document.getElementById("setBlacklist").addEventListener("input", (e) => {
+  clearTimeout(blacklistTimer);
+  blacklistTimer = setTimeout(() => {
+    saveSettings({ blacklist: e.target.value.trim() });
+    toast("黑名单已保存");
+  }, 600);
+});
+
+// 导出数据
+document.getElementById("exportBtn").addEventListener("click", async () => {
+  try {
+    const res = await chrome.runtime.sendMessage({ action: "db:exportAll" });
+    if (!res || res.error) {
+      toast("❌ 导出失败");
+      return;
+    }
+    const json = JSON.stringify(res, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const date = new Date().toISOString().slice(0, 10);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `promptflow-backup-${date}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(`✅ 已导出 ${res.prompts.length + res.templates.length} 条数据`);
+  } catch (err) {
+    toast("❌ 导出失败");
+  }
+});
+
+// 导入数据
+document.getElementById("importBtn").addEventListener("click", () => {
+  document.getElementById("importFileInput").click();
+});
+
+document.getElementById("importFileInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data || (!Array.isArray(data.prompts) && !Array.isArray(data.templates))) {
+      toast("⚠️ 文件格式不正确");
+      return;
+    }
+    const res = await chrome.runtime.sendMessage({ action: "db:importAll", payload: data });
+    if (res && !res.error) {
+      toast(`✅ 导入 ${res.imported} 条，跳过重复 ${res.skipped} 条`);
+      loadPrompts();
+      loadTemplates();
+    } else {
+      toast("❌ 导入失败");
+    }
+  } catch (err) {
+    toast("⚠️ 无法解析文件");
+  }
+});
+
+// 清空数据
+document.getElementById("clearBtn").addEventListener("click", () => {
+  showConfirm("确定清空所有提示词和模板？此操作不可恢复，建议先导出备份。", async () => {
+    try {
+      const res = await chrome.runtime.sendMessage({ action: "db:clearAll" });
+      if (res && !res.error) {
+        allPrompts = [];
+        allTemplates = [];
+        renderList();
+        renderTemplateList();
+        toast("已清空所有数据");
+      } else {
+        toast("❌ 清空失败");
+      }
+    } catch (err) {
+      toast("❌ 清空失败");
+    }
+  });
+});
+
 // ============ 工具函数 ============
 function showConfirm(msg, onConfirm) {
   const container = document.getElementById("confirmContainer");
@@ -689,3 +814,4 @@ function formatTime(ts) {
 
 loadPrompts();
 loadTemplates();
+loadSettings();

@@ -5,53 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PromptFlow</title>
     <style>
-      /* ===== 设计系统变量 ===== */
       :root {
-        /* 品牌色 */
         --pf-primary: #6d4aff;
         --pf-primary-light: #8b6cff;
         --pf-primary-dark: #5a3dcc;
         --pf-primary-bg: #f0edff;
-        /* 中性色 */
         --pf-bg: #ffffff;
         --pf-bg-secondary: #f8f9fc;
         --pf-bg-tertiary: #f0f2f6;
         --pf-border: #e8ecf1;
         --pf-border-light: #f0f2f6;
-        /* 文字色 */
         --pf-text-primary: #1e1e2e;
         --pf-text-secondary: #5a5a72;
         --pf-text-tertiary: #8e8ea8;
         --pf-text-placeholder: #b0b0c4;
-        /* 功能色 */
         --pf-success: #059669;
         --pf-success-bg: #ecfdf5;
         --pf-danger: #dc2626;
         --pf-danger-bg: #fef2f2;
-        /* 字号 */
-        --pf-fs-xs: 12px;
-        --pf-fs-sm: 13px;
-        --pf-fs-base: 13px;
-        --pf-fs-md: 15px;
-        --pf-fs-lg: 17px;
-        /* 间距 */
-        --pf-space-xs: 8px;
-        --pf-space-sm: 10px;
-        --pf-space-base: 14px;
-        --pf-space-md: 16px;
-        --pf-space-lg: 24px;
-        /* 圆角 */
+        --pf-fs-xs: 11px;
+        --pf-fs-sm: 12px;
+        --pf-fs-base: 12px;
+        --pf-fs-md: 14px;
+        --pf-fs-lg: 15px;
+        --pf-space-xs: 6px;
+        --pf-space-sm: 8px;
+        --pf-space-base: 12px;
+        --pf-space-md: 14px;
+        --pf-space-lg: 20px;
         --pf-radius-sm: 6px;
         --pf-radius-base: 8px;
         --pf-radius-md: 10px;
         --pf-radius-lg: 12px;
-        --pf-radius-xl: 16px;
-        /* 阴影 */
         --pf-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
         --pf-shadow-base: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
         --pf-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06);
         --pf-shadow-button: 0 2px 8px rgba(109, 74, 255, 0.3);
-        /* 过渡 */
         --pf-transition: 0.15s ease;
       }
       * {
@@ -60,8 +49,8 @@
         box-sizing: border-box;
       }
       body {
-        width: 380px;
-        height: 460px;
+        width: 400px;
+        height: 500px;
         font-family:
           -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue",
           sans-serif;
@@ -101,16 +90,22 @@
         display: flex;
         gap: 0;
         background: var(--pf-bg);
-        padding: 0 var(--pf-space-md);
+        padding: 0;
         flex-shrink: 0;
         border-bottom: 1px solid var(--pf-border);
       }
       .tab-item {
-        padding: var(--pf-space-sm) var(--pf-space-md);
+        flex: 1;
+        text-align: center;
+        padding: 12px 4px;
         margin-bottom: -1px;
         cursor: pointer;
         color: var(--pf-text-tertiary);
-        font-size: var(--pf-fs-base);
+        font-size: 15px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
         border-bottom: 2px solid transparent;
         transition:
           color var(--pf-transition),
@@ -184,8 +179,6 @@
         display: flex;
         flex-direction: column;
         background: var(--pf-bg);
-        margin: 0;
-        border-radius: 0;
       }
       .tab-page {
         display: none;
@@ -223,7 +216,6 @@
         gap: var(--pf-space-sm);
         border: 1px solid transparent;
         border-left: 3px solid transparent;
-        position: relative;
       }
       .list-item:hover {
         background: var(--pf-bg-secondary);
@@ -391,6 +383,162 @@
       }
       .batch-bar .del-selected-btn:not(:disabled):active {
         transform: scale(0.96);
+      }
+      /* ===== 设置页 ===== */
+      .settings-wrap {
+        flex: 1;
+        overflow-y: auto;
+        padding: var(--pf-space-base) var(--pf-space-md);
+      }
+      .settings-wrap::-webkit-scrollbar {
+        width: 4px;
+      }
+      .settings-wrap::-webkit-scrollbar-thumb {
+        background: var(--pf-border);
+        border-radius: 2px;
+      }
+      .settings-group {
+        margin-bottom: var(--pf-space-md);
+      }
+      .settings-group-title {
+        font-size: var(--pf-fs-xs);
+        font-weight: 700;
+        color: var(--pf-text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: var(--pf-space-sm);
+        padding-left: 2px;
+      }
+      .settings-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--pf-space-base);
+        background: var(--pf-bg);
+        border: 1px solid var(--pf-border-light);
+        border-radius: var(--pf-radius-md);
+        padding: var(--pf-space-base) var(--pf-space-md);
+        margin-bottom: var(--pf-space-xs);
+      }
+      .settings-item.column {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .settings-item-title {
+        font-size: var(--pf-fs-base);
+        font-weight: 600;
+        color: var(--pf-text-primary);
+        margin-bottom: 2px;
+      }
+      .settings-item-desc {
+        font-size: var(--pf-fs-xs);
+        color: var(--pf-text-tertiary);
+        line-height: 1.4;
+      }
+      .settings-select {
+        padding: 6px 10px;
+        border: 1px solid var(--pf-border);
+        border-radius: var(--pf-radius-base);
+        background: var(--pf-bg-secondary);
+        color: var(--pf-text-primary);
+        font-size: var(--pf-fs-base);
+        outline: none;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .settings-item textarea {
+        width: 100%;
+        margin-top: var(--pf-space-sm);
+        padding: 8px 10px;
+        border: 1px solid var(--pf-border);
+        border-radius: var(--pf-radius-base);
+        background: var(--pf-bg-secondary);
+        color: var(--pf-text-primary);
+        font-size: var(--pf-fs-base);
+        font-family: inherit;
+        outline: none;
+        resize: vertical;
+        transition:
+          border-color var(--pf-transition),
+          box-shadow var(--pf-transition);
+      }
+      .settings-item textarea:focus {
+        border-color: var(--pf-primary);
+        box-shadow: 0 0 0 3px rgba(109, 74, 255, 0.1);
+      }
+      .settings-actions {
+        display: flex;
+        gap: var(--pf-space-sm);
+      }
+      .settings-btn {
+        flex: 1;
+        padding: 8px 10px;
+        border: 1px solid var(--pf-border);
+        border-radius: var(--pf-radius-base);
+        background: var(--pf-bg-secondary);
+        color: var(--pf-text-primary);
+        font-size: var(--pf-fs-sm);
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          background var(--pf-transition),
+          transform var(--pf-transition),
+          border-color var(--pf-transition);
+      }
+      .settings-btn:hover {
+        background: var(--pf-primary-bg);
+        border-color: var(--pf-primary-light);
+        color: var(--pf-primary);
+      }
+      .settings-btn:active {
+        transform: scale(0.96);
+      }
+      .settings-btn.danger:hover {
+        background: var(--pf-danger-bg);
+        border-color: var(--pf-danger);
+        color: var(--pf-danger);
+      }
+      .settings-about {
+        font-size: var(--pf-fs-xs);
+        color: var(--pf-text-tertiary);
+        line-height: 1.6;
+      }
+      /* 开关 */
+      .pf-switch {
+        position: relative;
+        width: 38px;
+        height: 22px;
+        flex-shrink: 0;
+        display: inline-block;
+      }
+      .pf-switch input {
+        display: none;
+      }
+      .pf-slider {
+        position: absolute;
+        inset: 0;
+        cursor: pointer;
+        background: #d5d9e2;
+        border-radius: 22px;
+        transition: background var(--pf-transition);
+      }
+      .pf-slider::before {
+        content: "";
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        left: 3px;
+        top: 3px;
+        background: #fff;
+        border-radius: 50%;
+        transition: transform var(--pf-transition);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      }
+      .pf-switch input:checked + .pf-slider {
+        background: var(--pf-primary);
+      }
+      .pf-switch input:checked + .pf-slider::before {
+        transform: translateX(16px);
       }
       /* ===== 确认弹窗 ===== */
       .confirm-overlay {
@@ -689,11 +837,89 @@
         </div>
       </div>
 
+      <!-- ===== 设置页（新增完整实现） ===== -->
       <div class="tab-page" id="settings">
-        <div class="empty-state">
-          <div class="icon">⚙️</div>
-          <div>设置功能开发中...</div>
+        <div class="settings-wrap">
+          <div class="settings-group">
+            <div class="settings-group-title">悬浮球</div>
+            <div class="settings-item">
+              <div class="settings-item-info">
+                <div class="settings-item-title">启用悬浮球</div>
+                <div class="settings-item-desc">在网页上显示 PF 悬浮球入口</div>
+              </div>
+              <label class="pf-switch"
+                ><input type="checkbox" id="setBallEnabled" /><span class="pf-slider"></span
+              ></label>
+            </div>
+            <div class="settings-item">
+              <div class="settings-item-info">
+                <div class="settings-item-title">默认位置</div>
+                <div class="settings-item-desc">未拖动过悬浮球时的初始停靠边</div>
+              </div>
+              <select id="setBallSide" class="settings-select">
+                <option value="right">右侧</option>
+                <option value="left">左侧</option>
+              </select>
+            </div>
+            <div class="settings-item column">
+              <div class="settings-item-info">
+                <div class="settings-item-title">网站黑名单</div>
+                <div class="settings-item-desc">
+                  在这些网站隐藏悬浮球，每行一个域名，如 example.com
+                </div>
+              </div>
+              <textarea
+                id="setBlacklist"
+                rows="3"
+                placeholder="example.com&#10;mail.google.com"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">快捷键</div>
+            <div class="settings-item">
+              <div class="settings-item-info">
+                <div class="settings-item-title">Ctrl + Shift + P</div>
+                <div class="settings-item-desc">在网页中快速打开 / 关闭操作面板</div>
+              </div>
+              <label class="pf-switch"
+                ><input type="checkbox" id="setShortcutEnabled" /><span class="pf-slider"></span
+              ></label>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">数据管理</div>
+            <div class="settings-item column">
+              <div class="settings-item-info" style="margin-bottom: 10px">
+                <div class="settings-item-title">备份与恢复</div>
+                <div class="settings-item-desc">数据仅保存在本地浏览器，建议定期导出备份</div>
+              </div>
+              <div class="settings-actions">
+                <button class="settings-btn" id="exportBtn">📤 导出</button>
+                <button class="settings-btn" id="importBtn">📥 导入</button>
+                <button class="settings-btn danger" id="clearBtn">🗑 清空</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">关于</div>
+            <div class="settings-item column">
+              <div class="settings-about">
+                PromptFlow v2.0<br />
+                所有提示词与模板数据仅存储在你的浏览器本地（IndexedDB），不会上传到任何服务器。
+              </div>
+            </div>
+          </div>
         </div>
+        <input
+          type="file"
+          id="importFileInput"
+          accept=".json,application/json"
+          style="display: none"
+        />
       </div>
     </div>
 
@@ -726,7 +952,6 @@
     </div>
 
     <div id="confirmContainer"></div>
-
     <div id="toast"></div>
 
     <script src="popup.js"></script>
