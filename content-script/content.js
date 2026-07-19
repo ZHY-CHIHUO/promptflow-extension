@@ -1092,22 +1092,6 @@ function restorePosition() {
   });
 }
 
-// ========== 15. 键盘快捷键 ==========
-document.addEventListener("keydown", (e) => {
-  if (!pfSettings.shortcutEnabled) return;
-  if (e.ctrlKey && e.shiftKey && e.key === "P") {
-    e.preventDefault();
-    togglePanel();
-  }
-  if (e.key === "Escape") {
-    if (listPanel.style.display === "flex" && listPanel.classList.contains("pf-visible")) {
-      hideListPanel();
-    } else if (panel.style.display === "flex" && panel.classList.contains("pf-visible")) {
-      hidePanel();
-    }
-  }
-});
-
 // ==================================================================
 // 16. 模板填充弹窗
 // ==================================================================

@@ -12,8 +12,6 @@ let editingId = null;
 const SETTINGS_KEY = "pf_settings";
 const DEFAULT_SETTINGS = {
   ballEnabled: true,
-  ballDefaultSide: "right",
-  shortcutEnabled: true,
   blacklist: "",
 };
 let pfSettings = { ...DEFAULT_SETTINGS };
@@ -658,10 +656,9 @@ async function loadSettings() {
 
 function applySettingsToUI() {
   document.getElementById("setBallEnabled").checked = pfSettings.ballEnabled;
-  document.getElementById("setBallSide").value = pfSettings.ballDefaultSide;
-  document.getElementById("setShortcutEnabled").checked = pfSettings.shortcutEnabled;
   document.getElementById("setBlacklist").value = pfSettings.blacklist;
 }
+
 
 // 保存设置（合并写入，content.js 通过 onChanged 实时生效）
 function saveSettings(patch) {
@@ -672,16 +669,6 @@ function saveSettings(patch) {
 document.getElementById("setBallEnabled").addEventListener("change", (e) => {
   saveSettings({ ballEnabled: e.target.checked });
   toast(e.target.checked ? "悬浮球已启用" : "悬浮球已禁用");
-});
-
-document.getElementById("setBallSide").addEventListener("change", (e) => {
-  saveSettings({ ballDefaultSide: e.target.value });
-  toast("已保存");
-});
-
-document.getElementById("setShortcutEnabled").addEventListener("change", (e) => {
-  saveSettings({ shortcutEnabled: e.target.checked });
-  toast(e.target.checked ? "快捷键已启用" : "快捷键已禁用");
 });
 
 // 黑名单防抖保存

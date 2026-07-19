@@ -1,9 +1,19 @@
 // =============================================
-// PromptFlow Service Worker — 数据库中转层
+// PromptFlow Service Worker — 数据库中转层 + 云同步
 // =============================================
 
 const DB_NAME = "promptflow-db";
 const DB_VERSION = 1;
+
+// ============ 云同步配置（新增） ============
+// 使用 chrome.storage.sync 实现跨设备同步：
+// 每条数据一个 key（sp_{id} / st_{id}），启动时按 updatedAt 双向合并，
+// 删除通过墓碑（tombstone）同步，防止已删数据被其他设备复活
+const SYNC_PROMPT_PREFIX = "sp_";
+const SYNC_TEMPLATE_PREFIX = "st_";
+const SYNC_DELETED_KEY = "sync_deleted";
+const SYNC_ITEM_LIMIT = 7000; // 单条超过 7KB 跳过同步（云端单条上限 8KB）
+let syncPulled = false; // 本生命周期内是否已拉取过云端
 
 // ---------- 打开数据库 ----------
 function openDB() {
@@ -29,9 +39,158 @@ function openDB() {
   });
 }
 
-// ---------- Prompts CRUD ----------
-async function addPrompt(prompt) {
+// ============================================================
+// 云同步基础函数（新增）
+// ============================================================
+
+// 写入单条数据到云端（超限时跳过）
+async function syncSet(key, value) {
+  try {
+    if (JSON.stringify(value).length > SYNC_ITEM_LIMIT) {
+      console.warn("[PromptFlow] 数据过大，跳过云同步:", key);
+      return;
+    }
+    await chrome.storage.sync.set({ [key]: value });
+  } catch (err) {
+    console.warn("[PromptFlow] 云同步写入失败:", err);
+  }
+}
+
+// 从云端删除并记录墓碑
+async function syncRemove(id) {
+  try {
+    await chrome.storage.sync.remove([SYNC_PROMPT_PREFIX + id, SYNC_TEMPLATE_PREFIX + id]);
+    const data = await chrome.storage.sync.get(SYNC_DELETED_KEY);
+    const tombstones = data[SYNC_DELETED_KEY] || {};
+    tombstones[id] = Date.now();
+    await chrome.storage.sync.set({ [SYNC_DELETED_KEY]: tombstones });
+  } catch (err) {
+    console.warn("[PromptFlow] 云同步删除失败:", err);
+  }
+}
+
+// ---------- 本地原始读写（不触发云同步，供合并逻辑使用，避免循环） ----------
+async function putPromptRaw(p) {
   const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("prompts", "readwrite");
+    tx.objectStore("prompts").put(p);
+    tx.oncomplete = () => resolve(p);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function putTemplateRaw(t) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("templates", "readwrite");
+    tx.objectStore("templates").put(t);
+    tx.oncomplete = () => resolve(t);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function deletePromptRaw(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("prompts", "readwrite");
+    tx.objectStore("prompts").delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function deleteTemplateRaw(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("templates", "readwrite");
+    tx.objectStore("templates").delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ============================================================
+// 启动时双向合并：云端 ↔ 本地（新增）
+// ============================================================
+async function pullFromSync() {
+  if (syncPulled) return;
+  syncPulled = true;
+  try {
+    const cloud = await chrome.storage.sync.get(null);
+    const tombstones = cloud[SYNC_DELETED_KEY] || {};
+
+    const localPrompts = await getAllPrompts();
+    const localTemplates = await getAllTemplates();
+    const localP = new Map(localPrompts.map((p) => [p.id, p]));
+    const localT = new Map(localTemplates.map((t) => [t.id, t]));
+
+    // 1. 应用墓碑：云端已删除的，本地也删除
+    for (const [id, delTime] of Object.entries(tombstones)) {
+      const lp = localP.get(id);
+      if (lp && (lp.updatedAt || 0) <= delTime) {
+        await deletePromptRaw(id);
+        localP.delete(id);
+      }
+      const lt = localT.get(id);
+      if (lt && (lt.updatedAt || 0) <= delTime) {
+        await deleteTemplateRaw(id);
+        localT.delete(id);
+      }
+    }
+
+    // 2. 云端 → 本地：本地没有或云端更新时写入
+    for (const [key, val] of Object.entries(cloud)) {
+      if (key === SYNC_DELETED_KEY) continue;
+      const isPrompt = key.startsWith(SYNC_PROMPT_PREFIX);
+      const isTemplate = key.startsWith(SYNC_TEMPLATE_PREFIX);
+      if (!isPrompt && !isTemplate) continue;
+      const id = key.slice(3);
+      if (tombstones[id]) continue;
+
+      if (isPrompt) {
+        const local = localP.get(id);
+        if (!local || (val.updatedAt || 0) > (local.updatedAt || 0)) {
+          await putPromptRaw(val);
+          localP.set(id, val);
+        }
+      } else {
+        const local = localT.get(id);
+        if (!local || (val.updatedAt || 0) > (local.updatedAt || 0)) {
+          await putTemplateRaw(val);
+          localT.set(id, val);
+        }
+      }
+    }
+
+    // 3. 本地 → 云端：推送云端缺失的数据（首次使用或本机独有）
+    const pushPayload = {};
+    for (const p of localP.values()) {
+      const key = SYNC_PROMPT_PREFIX + p.id;
+      if (!(key in cloud) && !tombstones[p.id] && JSON.stringify(p).length <= SYNC_ITEM_LIMIT) {
+        pushPayload[key] = p;
+      }
+    }
+    for (const t of localT.values()) {
+      const key = SYNC_TEMPLATE_PREFIX + t.id;
+      if (!(key in cloud) && !tombstones[t.id] && JSON.stringify(t).length <= SYNC_ITEM_LIMIT) {
+        pushPayload[key] = t;
+      }
+    }
+    if (Object.keys(pushPayload).length > 0) {
+      await chrome.storage.sync.set(pushPayload);
+    }
+  } catch (err) {
+    console.warn("[PromptFlow] 云端拉取失败:", err);
+  }
+}
+
+// 浏览器启动 / 扩展安装更新时拉取云端
+chrome.runtime.onStartup.addListener(() => pullFromSync());
+chrome.runtime.onInstalled.addListener(() => pullFromSync());
+
+// ---------- Prompts CRUD（修改：写入后同步云端） ----------
+async function addPrompt(prompt) {
   const text = (prompt.promptText || "").trim();
 
   const all = await getAllPrompts();
@@ -52,12 +211,9 @@ async function addPrompt(prompt) {
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("prompts", "readwrite");
-    tx.objectStore("prompts").add(p);
-    tx.oncomplete = () => resolve(p);
-    tx.onerror = () => reject(tx.error);
-  });
+  await putPromptRaw(p);
+  await syncSet(SYNC_PROMPT_PREFIX + p.id, p); // 新增：同步云端
+  return p;
 }
 
 async function getAllPrompts() {
@@ -80,26 +236,17 @@ async function getPromptById(id) {
 }
 
 async function updatePrompt(id, updates) {
-  const db = await openDB();
   const old = await getPromptById(id);
   if (!old) throw new Error("Prompt not found");
   const updated = { ...old, ...updates, updatedAt: Date.now() };
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("prompts", "readwrite");
-    tx.objectStore("prompts").put(updated);
-    tx.oncomplete = () => resolve(updated);
-    tx.onerror = () => reject(tx.error);
-  });
+  await putPromptRaw(updated);
+  await syncSet(SYNC_PROMPT_PREFIX + id, updated); // 新增：同步云端
+  return updated;
 }
 
 async function deletePrompt(id) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("prompts", "readwrite");
-    tx.objectStore("prompts").delete(id);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  await deletePromptRaw(id);
+  await syncRemove(id); // 新增：云端删除 + 墓碑
 }
 
 async function searchPrompts(keyword) {
@@ -108,9 +255,8 @@ async function searchPrompts(keyword) {
   return all.filter((p) => p.promptText.toLowerCase().includes(kw));
 }
 
-// ---------- Templates CRUD ----------
+// ---------- Templates CRUD（修改：写入后同步云端） ----------
 async function addTemplate(template) {
-  const db = await openDB();
   const text = (template.templateText || "").trim();
   if (!text) return { error: "EMPTY", message: "模板内容不能为空" };
 
@@ -124,12 +270,9 @@ async function addTemplate(template) {
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("templates", "readwrite");
-    tx.objectStore("templates").add(t);
-    tx.oncomplete = () => resolve(t);
-    tx.onerror = () => reject(tx.error);
-  });
+  await putTemplateRaw(t);
+  await syncSet(SYNC_TEMPLATE_PREFIX + t.id, t); // 新增：同步云端
+  return t;
 }
 
 async function getAllTemplates() {
@@ -152,33 +295,22 @@ async function getTemplateById(id) {
 }
 
 async function updateTemplate(id, updates) {
-  const db = await openDB();
   const old = await getTemplateById(id);
   if (!old) throw new Error("Template not found");
   const updated = { ...old, ...updates, updatedAt: Date.now() };
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("templates", "readwrite");
-    tx.objectStore("templates").put(updated);
-    tx.oncomplete = () => resolve(updated);
-    tx.onerror = () => reject(tx.error);
-  });
+  await putTemplateRaw(updated);
+  await syncSet(SYNC_TEMPLATE_PREFIX + id, updated); // 新增：同步云端
+  return updated;
 }
 
 async function deleteTemplate(id) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("templates", "readwrite");
-    tx.objectStore("templates").delete(id);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  await deleteTemplateRaw(id);
+  await syncRemove(id); // 新增：云端删除 + 墓碑
 }
 
 // ============================================================
-// 数据导入 / 导出 / 清空（新增）
+// 数据导入 / 导出 / 清空
 // ============================================================
-
-// 导出所有数据
 async function exportAll() {
   const prompts = await getAllPrompts();
   const templates = await getAllTemplates();
@@ -191,12 +323,10 @@ async function exportAll() {
   };
 }
 
-// 导入数据（提示词按内容去重跳过，模板直接插入新副本）
 async function importAll(data) {
   let imported = 0;
   let skipped = 0;
 
-  // 提示词：跳过与现有内容重复的
   if (Array.isArray(data.prompts)) {
     const existing = await getAllPrompts();
     const existingTexts = new Set(existing.map((p) => (p.promptText || "").trim()));
@@ -223,7 +353,6 @@ async function importAll(data) {
     }
   }
 
-  // 模板：非空即导入
   if (Array.isArray(data.templates)) {
     for (const t of data.templates) {
       const text = (t.templateText || "").trim();
@@ -248,7 +377,6 @@ async function importAll(data) {
   return { imported, skipped };
 }
 
-// 清空所有数据
 async function clearAll() {
   const db = await openDB();
   const stores = ["prompts", "templates"];
@@ -263,29 +391,38 @@ async function clearAll() {
         }),
     ),
   );
+  // 新增：同时清空云端，防止已清空的数据被同步复活
+  try {
+    await chrome.storage.sync.clear();
+  } catch (err) {
+    console.warn("[PromptFlow] 云端清空失败:", err);
+  }
   return { success: true };
 }
 
 // ============ 消息路由 ============
+// 修改：Service Worker 唤醒后，首次消息前先执行一次云端拉取
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  handleMessage(request)
-    .then(sendResponse)
-    .catch((err) => sendResponse({ error: err.message }));
+  pullFromSync()
+    .catch(() => {})
+    .finally(() => {
+      handleMessage(request)
+        .then(sendResponse)
+        .catch((err) => sendResponse({ error: err.message }));
+    });
   return true;
 });
 
 async function handleMessage(request) {
   switch (request.action) {
-    // ===== 新增：打开扩展 popup 面板 =====
+    // ===== 打开扩展 popup =====
     case "openPopup":
       try {
         await chrome.action.openPopup();
         return { success: true };
       } catch (err) {
-        // Chrome 127 以下不支持 openPopup，返回错误让 content.js 回退提示
         return { error: err.message };
       }
-
     // ===== Prompts =====
     case "db:addPrompt":
       return await addPrompt(request.payload);
