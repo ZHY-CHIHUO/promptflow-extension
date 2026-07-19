@@ -57,7 +57,7 @@ function renderList() {
   if (filtered.length === 0) {
     listEl.innerHTML =
       allPrompts.length === 0
-        ? `<div class="empty-state"><div class="icon">📋</div><div>还没有保存 Prompt</div><div style="font-size:12px;margin-top:4px;">在 DeepSeek 页面点悬浮球保存</div></div>`
+        ? `<div class="empty-state"><div class="icon">📋</div><div>还没有保存 Prompt</div></div>`
         : `<div class="empty-state"><div class="icon">🔍</div><div>没有匹配的 Prompt</div></div>`;
     return;
   }
