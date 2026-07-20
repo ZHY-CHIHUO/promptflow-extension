@@ -23,20 +23,35 @@ function isCurrentSiteBlacklisted() {
 
 // ========== 智能输入框探测 ==========
 function detectInputElement() {
-  const editables = document.querySelectorAll(
-    '[contenteditable="true"], [contenteditable="plaintext-only"]',
-  );
-  for (const el of editables) {
-    if (isVisible(el) && isLikelyInput(el)) return el;
+  // 优先：已知 AI 平台的专用选择器
+  const knownSelectors = [
+    // Qwen Chat — 精确到 textarea
+    "textarea.message-input-textarea",
+    '[class*="qwen"] textarea',
+    '[class*="qwen"] [contenteditable="true"]',
+    '[class*="qwen"] [role="textbox"]',
+    // ChatGPT
+    "#prompt-textarea",
+    '[class*="prose"] [contenteditable="true"]',
+    // Claude
+    '[class*="ProseMirror"]',
+    // 通用 contenteditable
+    '[contenteditable="true"]',
+    '[contenteditable="plaintext-only"]',
+    // 通用 textarea
+    'textarea:not([class*="hidden"]):not([style*="display: none"])',
+    // 通用 role="textbox"
+    '[role="textbox"]:not([class*="hidden"])',
+  ];
+
+  for (const sel of knownSelectors) {
+    const elements = document.querySelectorAll(sel);
+    for (const el of elements) {
+      if (isVisible(el) && isLikelyInput(el)) return el;
+    }
   }
-  const textareas = document.querySelectorAll("textarea");
-  for (const el of textareas) {
-    if (isVisible(el) && isLikelyInput(el)) return el;
-  }
-  const textboxes = document.querySelectorAll('[role="textbox"]');
-  for (const el of textboxes) {
-    if (isVisible(el)) return el;
-  }
+
+  // 兜底：评分匹配
   let bestEl = null,
     bestScore = 0;
   document
@@ -52,6 +67,27 @@ function detectInputElement() {
       }
     });
   return bestEl;
+}
+
+// 替换 isVisible — 增加对 opacity 和 tabindex 的检查
+function isVisible(el) {
+  const s = window.getComputedStyle(el);
+  return (
+    s.display !== "none" &&
+    s.visibility !== "hidden" &&
+    s.opacity !== "0" &&
+    el.offsetWidth > 0 &&
+    el.offsetHeight > 0
+  );
+}
+
+// 替换 isLikelyInput — 不再盲目返回 true
+function isLikelyInput(el) {
+  // 有占位文本且无"hidden"类名 = 极可能是主输入框
+  const cls = (el.className || "").toLowerCase();
+  if (cls.includes("hidden") || cls.includes("sr-only") || cls.includes("offscreen")) return false;
+  if (el.getAttribute("aria-hidden") === "true") return false;
+  return true;
 }
 
 function isVisible(el) {
@@ -95,15 +131,59 @@ function getInputText() {
 function setInputText(text) {
   const el = getInputElement();
   if (!el) return false;
-  if (el.hasAttribute("contenteditable")) {
+
+  if (el.hasAttribute("contenteditable") || el.getAttribute("role") === "textbox") {
     el.focus();
-    el.innerText = text;
-    el.dispatchEvent(new Event("input", { bubbles: true }));
+    try {
+      document.execCommand("selectAll", false, undefined);
+      document.execCommand("insertText", false, text);
+    } catch (_) {
+      el.textContent = text;
+    }
+    el.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+    return true;
+  }
+
+  // textarea / input — 使用更强力的写入方式
+  el.focus();
+
+  // React 和某些框架会接管 value setter，需要同时用原生 setter + execCommand 兜底
+  const nativeSetter = Object.getOwnPropertyDescriptor(
+    el instanceof HTMLTextAreaElement
+      ? window.HTMLTextAreaElement.prototype
+      : window.HTMLInputElement.prototype,
+    "value",
+  )?.set;
+
+  // 方式1：原生 setter + 事件
+  if (nativeSetter) {
+    nativeSetter.call(el, text);
   } else {
     el.value = text;
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-    el.dispatchEvent(new Event("change", { bubbles: true }));
   }
+
+  // 显式设置 selection，部分框架用这个判断是"人为输入"
+  el.selectionStart = text.length;
+  el.selectionEnd = text.length;
+
+  // 触发完整的事件链（input → change → blur→focus 循环）
+  el.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+
+  // 方式2（兜底）：如果上述方式被框架拦截，再用 execCommand 尝试一次
+  if (el.value !== text) {
+    try {
+      el.focus();
+      el.select();
+      document.execCommand("insertText", false, text);
+      el.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+    } catch (_) {
+      // execCommand 在某些 textarea 上不支持，忽略
+    }
+  }
+
   return true;
 }
 
